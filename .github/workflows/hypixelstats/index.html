@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/png" href="images/favicon.png" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ites1f-Hypixel</title>
+
+  <!-- ✅ Link your theme CSS -->
+  <link rel="stylesheet" href="assets/css/main.css" />
+  <link rel="stylesheet" href="assets/css/noscript.css" />
+  <link rel="stylesheet" href="assets/css/fontawesome-all.min.css" />
+</head>
+<body>
+
+  <!-- HERO -->
+  <header id="header">
+    <div class="inner">
+      <h1>Hypixel Stats</h1>
+      <h3>Powered by Hypixel API</h3>
+    </div>
+  </header>
+
+		<!-- Two -->
+		<!-- <section id="two" class="main style2">-->
+	<!--
+			<section id="stats" class="wrapper style1">
+				<div class="container">
+					<div class="row gtr-150">
+						<div class="col-6 col-12-medium">
+							<ul class="major-icons">
+								<li><span class="icon solid style1 major fa-code"></span></li>
+								<li><img src="images/pic02.jpg" alt="Code icon" width="80"></li>
+								<li><span class="icon solid style3 major fa-bolt"></span></li>
+								<li><span class="icon solid style4 major fa-cog"></span></li>
+								<li><span class="icon solid style5 major fa-desktop"></span></li>
+								<li><span class="icon solid style6 major fa-calendar"></span></li>
+							</ul>
+						</div>
+						<div class="col-6 col-12-medium">
+							<header class="major">
+								<h2>This tab will be something big in the future. <br />
+								 </h2>
+							</header>
+							<p>Which also means, it has nothing at the moment.</p>
+							<p> </p>
+							<p> </p>
+						</div>
+					</div>
+				</div>
+			</section>
+-->
+  <!-- SKYVIEWER APP -->
+  <section id="stats" class="wrapper style1">
+    <div class="inner">
+      <header class="major">
+        <h2><br /><br />Hypixel Stats</h2>
+        <p>Enter an IGN to view general + SkyBlock info</p>
+      </header>
+
+      <!-- Search -->
+      <div class="search">
+        <input id="ign" placeholder="Enter IGN (e.g., ites1f)" />
+        <button id="go" class="button primary">SEARCH</button>
+      </div>
+      <div id="msg" style="display:none"></div>
+
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" data-tab="overview">Overview</button>
+        <button class="tab" data-tab="skyblock">SkyBlock</button>
+        <button class="tab" data-tab="slayer">Slayer</button>
+        <button class="tab" data-tab="pets">Pets</button>
+      </div>
+
+      <!-- Overview -->
+      <div id="panel-overview">
+        <h3>General</h3>
+        <ul>
+          <li>Name: <span id="ov-name">—</span></li>
+          <li>Rank: <span id="ov-rank">—</span></li>
+          <li>Network Level: <span id="ov-level">—</span></li>
+          <li>Karma: <span id="ov-karma">—</span></li>
+          <li>Online: <span id="ov-online">—</span></li>
+          <li>Guild: <span id="ov-guild">—</span></li>
+        </ul>
+      </div>
+
+      <!-- SkyBlock -->
+      <div id="panel-skyblock" style="display:none">
+        <h3>SkyBlock (<span id="sb-profile">—</span>)</h3>
+        <ul>
+          <li>Farming: <span id="sb-farming">—</span></li>
+          <li>Mining: <span id="sb-mining">—</span></li>
+          <li>Combat: <span id="sb-combat">—</span></li>
+          <li>Fairy Souls: <span id="sb-fairy">—</span></li>
+          <li>HOTM: <span id="sb-hotm">—</span></li>
+        </ul>
+      </div>
+
+      <!-- Slayer -->
+      <div id="panel-slayer" style="display:none">
+        <h3>Slayer</h3>
+        <ul>
+          <li>Zombie: <span id="sl-zombie">—</span></li>
+          <li>Spider: <span id="sl-spider">—</span></li>
+          <li>Wolf: <span id="sl-wolf">—</span></li>
+          <li>Enderman: <span id="sl-endo">—</span></li>
+          <li>Blaze: <span id="sl-blaze">—</span></li>
+        </ul>
+      </div>
+
+      <!-- Pets -->
+      <div id="panel-pets" style="display:none">
+        <h3>Pets</h3>
+        <div id="pets-list">—</div>
+      </div>
+    </div>
+  </section>
+  <!-- BUTTON STRIP -->
+  <section id="banner">
+    <div class="inner">
+      <h2></h2>
+      <p></p>
+      <ul class="actions special">
+        <li><a href="https://ites1f.github.io/ites1f/" class="button">Creator</a></li>
+      </ul>
+    </div>
+  </section>
+  <footer id="footer">
+    <p>© <span id="y"></span> ites1f • SkyViewer</p>
+  </footer>
+
+<script>
+  const API = "https://sparkling-mode-89ee.wsciteslf.workers.dev";
+
+  // Tabs
+  const tabs = document.querySelectorAll('.tab');
+  const panels = {
+    overview: document.getElementById('panel-overview'),
+    skyblock: document.getElementById('panel-skyblock'),
+    slayer: document.getElementById('panel-slayer'),
+    pets: document.getElementById('panel-pets'),
+  };
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    Object.values(panels).forEach(p => p.style.display = 'none');
+    panels[t.dataset.tab].style.display = 'block';
+  }));
+  document.getElementById('y').textContent = new Date().getFullYear();
+
+  // Lookup tables
+  const SKILL_XP=[0,50,175,375,675,1175,1925,2925,4425,6425,9925,14925,22425,32425,47425,67425,97425,147425,222425,322425,522425,822425,1222425,1722425,2322425,3022425,3822425,4722425,5722425,6822425,8022425,9322425,10722425,12222425,13822425,15522425,17322425,19222425,21222425,23322425,25522425,27822425,30222425,32722425,35322425,38022425,40822425,43722425,46722425,49822425,53022425,56322425,59722425,63222425,66822425,70522425,74322425,78222425,82222425,86322425];
+  function skillXpToLevel(xp){let lvl=0;for(let i=0;i<SKILL_XP.length;i++){if(xp>=SKILL_XP[i])lvl=i;else break;}return lvl;}
+  const SLAYER_XP={zombie:[0,5,15,200,1000,5000,20000,100000,400000,1000000],spider:[0,5,15,200,1000,5000,20000,100000,400000,1000000],wolf:[0,5,15,200,1500,5000,20000,100000,400000,1000000],enderman:[0,10,30,250,1500,5000,20000,100000,400000,1000000],blaze:[0,10,30,250,1500,5000,20000,100000,400000,1000000]};
+  function slayerXpToLevel(xp,t){const req=SLAYER_XP[t]||[];let lvl=0;for(let i=0;i<req.length;i++){if(xp>=req[i])lvl=i;else break;}return lvl;}
+  const HOTM_XP=[0,0,100,250,1000,5000,25000,100000,250000,1000000];
+  function hotmXpToLevel(xp){let lvl=0;for(let i=0;i<HOTM_XP.length;i++){if(xp>=HOTM_XP[i])lvl=i;else break;}return lvl;}
+  function xpToNetworkLevel(xp){return Math.floor((Math.sqrt((2*xp)+30625)/50)-2.5);}
+  async function byNameToUuid(name){const r=await fetch(`https://playerdb.co/api/player/minecraft/${encodeURIComponent(name)}`);if(!r.ok)throw new Error("IGN lookup failed");const j=await r.json();const id=j?.data?.player?.id;if(!id)throw new Error("IGN not found");return id.replace(/-/g,"");}
+  function setMsg(text){const m=document.getElementById('msg');if(text){m.style.display='block';m.textContent=text;}else{m.style.display='none';m.textContent='';}}
+
+  // Fetch handler
+  document.getElementById("go").onclick = async () => {
+    try{
+      setMsg("");
+      const ign=document.getElementById("ign").value.trim();
+      if(!ign) return setMsg("Type an IGN first.");
+      const uuidNoDash=await byNameToUuid(ign);
+      const uuidDashed=uuidNoDash.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/,"$1-$2-$3-$4-$5");
+
+      const [player,status,guild,profiles]=await Promise.all([
+        fetch(`${API}/api/player?uuid=${uuidDashed}`).then(r=>r.json()),
+        fetch(`${API}/api/status?uuid=${uuidDashed}`).then(r=>r.json()),
+        fetch(`${API}/api/guild?uuid=${uuidDashed}`).then(r=>r.json()),
+        fetch(`${API}/api/skyblock/profiles?uuid=${uuidDashed}`).then(r=>r.json()),
+      ]);
+
+      const p=player.player??{};const st=status.session??{};const g=guild.guild??{};
+      document.getElementById("ov-name").textContent=p.displayname??ign;
+      document.getElementById("ov-rank").textContent=p.rank??p.newPackageRank??"—";
+      document.getElementById("ov-level").textContent=xpToNetworkLevel(p.networkExp??0);
+      document.getElementById("ov-karma").textContent=p.karma??0;
+      document.getElementById("ov-online").textContent=st.online?"Yes":"No";
+      document.getElementById("ov-guild").textContent=g.name??"—";
+
+      let prof=null;if(profiles&&Array.isArray(profiles.profiles)&&profiles.profiles.length>0){prof=profiles.profiles.find(x=>x.selected)??profiles.profiles[0];}
+      document.getElementById("sb-profile").textContent=prof?.cute_name??"No Profile";
+      let sb={};if(prof?.members){sb=prof.members[uuidNoDash]??{};}
+      document.getElementById("sb-farming").textContent=sb.experience_skill_farming!=null?skillXpToLevel(sb.experience_skill_farming):"—";
+      document.getElementById("sb-mining").textContent=sb.experience_skill_mining!=null?skillXpToLevel(sb.experience_skill_mining):"—";
+      document.getElementById("sb-combat").textContent=sb.experience_skill_combat!=null?skillXpToLevel(sb.experience_skill_combat):"—";
+      document.getElementById("sb-fairy").textContent=sb.fairy_souls_collected??"—";
+      document.getElementById("sb-hotm").textContent=hotmXpToLevel(sb.mining_core?.experience??0);
+
+      const sl=sb.slayer_bosses??{};
+      document.getElementById("sl-zombie").textContent=slayerXpToLevel(sl.zombie?.xp??0,"zombie");
+      document.getElementById("sl-spider").textContent=slayerXpToLevel(sl.spider?.xp??0,"spider");
+      document.getElementById("sl-wolf").textContent=slayerXpToLevel(sl.wolf?.xp??0,"wolf");
+      document.getElementById("sl-endo").textContent=slayerXpToLevel(sl.enderman?.xp??0,"enderman");
+      document.getElementById("sl-blaze").textContent=slayerXpToLevel(sl.blaze?.xp??0,"blaze");
+
+      const pets=Array.isArray(sb.pets)?sb.pets:[];
+      document.getElementById("pets-list").textContent=pets.length?pets.map(p=>`${p.type} (${p.tier})`).join(", "):"—";
+
+      if(!prof) setMsg("No SkyBlock data (API disabled or no profiles).");
+    }catch(err){console.error(err);setMsg(String(err));}
+  };
+</script>
+</body>
+</html>
