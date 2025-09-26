@@ -3030,7 +3030,7 @@ input, select, textarea {
 			#header .actions:after {
 				background: #ffffff;
 				content: '';
-				height: 100vh;
+				height: 600px;
 				left: 50%;
 				position: absolute;
 				top: 100%;
