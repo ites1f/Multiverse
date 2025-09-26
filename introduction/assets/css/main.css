@@ -2923,7 +2923,7 @@ input, select, textarea {
 
 	/* height: fill the screen (mobile-safe) */
 	min-height: 90vh;
-	min-height: 100dvh;
+	min-height: 90dvh;
 
 	/* visuals (unchanged) */
 	background-color: #4686a0;
