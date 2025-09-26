@@ -94,27 +94,27 @@ addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
 addEventListener('contextmenu', (e) => e.preventDefault()); // enable right-click placing
 
 /* ================= Noise (tiny value noise) ================= */
-function hash2i(x, y, seed=WORLD_SEED) {
-  // integer hash -> [0,1)
-  let h = x * 374761393 + y * 668265263 + seed*1442695040888963407n; // big seed
-  // convert to 32-bit range
-  let n = Number((BigInt(h) ^ (BigInt(h)>>33n)) & 0xffffffffn);
-  n ^= (n << 13); n ^= (n >>> 17); n ^= (n << 5);
-  return ((n >>> 0) % 100000) / 100000;
+// === Noise ===
+function hash2i(x, y, seed = WORLD_SEED) {
+  let h = x * 374761393 + y * 668265263 + seed * 1013904223;
+  h = (h ^ (h >> 13)) * 1274126177;
+  return (h >>> 0) / 0xffffffff;
 }
-function smoothstep(t){ return t*t*(3-2*t); }
-function valueNoise2(x, y){
+
+function valueNoise2(x, y) {
   const xi = Math.floor(x), yi = Math.floor(y);
   const tx = x - xi, ty = y - yi;
   const a = hash2i(xi, yi);
-  const b = hash2i(xi+1, yi);
-  const c = hash2i(xi, yi+1);
-  const d = hash2i(xi+1, yi+1);
-  const sx = smoothstep(tx), sy = smoothstep(ty);
-  const u = a + (b-a)*sx;
-  const v = c + (d-c)*sx;
-  return u + (v-u)*sy;
+  const b = hash2i(xi + 1, yi);
+  const c = hash2i(xi, yi + 1);
+  const d = hash2i(xi + 1, yi + 1);
+  const sx = tx * tx * (3 - 2 * tx);
+  const sy = ty * ty * (3 - 2 * ty);
+  const u = a + (b - a) * sx;
+  const v = c + (d - c) * sx;
+  return u + (v - u) * sy;
 }
+function smoothstep(t){ return t*t*(3-2*t); }
 function fbm2(x, y){
   let amp=1, freq=1, sum=0, norm=0;
   for (let i=0;i<5;i++){
