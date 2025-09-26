@@ -46,7 +46,6 @@
     const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" });
     renderer.setSize(innerWidth, innerHeight);
     renderer.setPixelRatio(devicePixelRatio);
-    // Better color out-of-the-box
     if (renderer.outputColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
 
@@ -127,7 +126,7 @@
         this.blocks=new Uint8Array(CHUNK.X*CHUNK.Y*CHUNK.Z);
         this.mesh=null;
         this.generated=false;
-        this.dirty=false; // NEW: only rebuild mesh when dirty
+        this.dirty=false; // rebuild mesh only when dirty
       }
     }
     const chunks=new Map();
@@ -192,7 +191,6 @@
     }
 
     function buildMesh(c){
-      // Only build if flagged dirty
       if (!c.dirty) return;
       c.dirty = false;
 
@@ -213,45 +211,57 @@
       };
       const pushQuad=(p0,p1,p2,p3,n,color)=>{ pushTri(p0,p1,p2,n,color); pushTri(p0,p2,p3,n,color); };
 
+      // CORRECTED WINDING: vertices are counter-clockwise when looking at the outward normal
       const addFace=(x,y,z,dir,color)=>{
         const bx=baseX+x, by=y, bz=baseZ+z;
         switch(dir){
+          // +X
           case 0: pushQuad(
-            new THREE.Vector3(bx+1,by,bz),
-            new THREE.Vector3(bx+1,by,bz+1),
+            new THREE.Vector3(bx+1,by,  bz  ),
+            new THREE.Vector3(bx+1,by+1,bz  ),
             new THREE.Vector3(bx+1,by+1,bz+1),
-            new THREE.Vector3(bx+1,by+1,bz),
-            new THREE.Vector3(1,0,0),color); break;
+            new THREE.Vector3(bx+1,by,  bz+1),
+            new THREE.Vector3(1,0,0), color); break;
+
+          // -X
           case 1: pushQuad(
-            new THREE.Vector3(bx,by,bz+1),
-            new THREE.Vector3(bx,by,bz),
-            new THREE.Vector3(bx,by+1,bz),
+            new THREE.Vector3(bx,by,  bz+1),
             new THREE.Vector3(bx,by+1,bz+1),
-            new THREE.Vector3(-1,0,0),color); break;
+            new THREE.Vector3(bx,by+1,bz  ),
+            new THREE.Vector3(bx,by,  bz  ),
+            new THREE.Vector3(-1,0,0), color); break;
+
+          // +Y (top)
           case 2: pushQuad(
-            new THREE.Vector3(bx,by+1,bz),
-            new THREE.Vector3(bx+1,by+1,bz),
+            new THREE.Vector3(bx,  by+1,bz  ),
+            new THREE.Vector3(bx,  by+1,bz+1),
             new THREE.Vector3(bx+1,by+1,bz+1),
-            new THREE.Vector3(bx,by+1,bz+1),
-            new THREE.Vector3(0,1,0),color); break;
+            new THREE.Vector3(bx+1,by+1,bz  ),
+            new THREE.Vector3(0,1,0), color); break;
+
+          // -Y (bottom)
           case 3: pushQuad(
-            new THREE.Vector3(bx,by,bz+1),
-            new THREE.Vector3(bx,by,bz),
-            new THREE.Vector3(bx+1,by,bz),
-            new THREE.Vector3(bx+1,by,bz+1),
-            new THREE.Vector3(0,-1,0),color); break;
+            new THREE.Vector3(bx,  by,  bz+1),
+            new THREE.Vector3(bx,  by,  bz  ),
+            new THREE.Vector3(bx+1,by,  bz  ),
+            new THREE.Vector3(bx+1,by,  bz+1),
+            new THREE.Vector3(0,-1,0), color); break;
+
+          // +Z (front)
           case 4: pushQuad(
-            new THREE.Vector3(bx+1,by,bz+1),
-            new THREE.Vector3(bx,by,bz+1),
-            new THREE.Vector3(bx,by+1,bz+1),
+            new THREE.Vector3(bx,  by,  bz+1),
+            new THREE.Vector3(bx,  by+1,bz+1),
             new THREE.Vector3(bx+1,by+1,bz+1),
-            new THREE.Vector3(0,0,1),color); break;
+            new THREE.Vector3(bx+1,by,  bz+1),
+            new THREE.Vector3(0,0,1), color); break;
+
+          // -Z (back)
           case 5: pushQuad(
-            new THREE.Vector3(bx,by,bz),
-            new THREE.Vector3(bx+1,by,bz),
-            new THREE.Vector3(bx+1,by+1,bz),
-            new THREE.Vector3(bx,by+1,bz),
-            new THREE.Vector3(0,0,-1),color); break;
+            new THREE.Vector3(bx+1,by,  bz  ),
+            new THREE.Vector3(bx+1,by+1,bz  ),
+            new THREE.Vector3(bx,  by+1,bz  ),
+            new THREE.Vector3(bx,  by,  bz  ),
+            new THREE.Vector3(0,0,-1), color); break;
         }
       };
 
@@ -274,12 +284,16 @@
       geom.setAttribute("normal",new THREE.Float32BufferAttribute(norm,3));
       geom.setAttribute("color",new THREE.Float32BufferAttribute(col,3));
       geom.computeBoundingSphere();
+
       const mat=new THREE.MeshLambertMaterial({
-        vertexColors:true, fog:true,
-        transparent:true, // allow glass to alpha blend
+        vertexColors:true,
+        fog:true,
+        transparent:true,
         opacity:1.0,
-        depthWrite:true
+        depthWrite:true,
+        side: THREE.FrontSide
       });
+
       c.mesh=new THREE.Mesh(geom,mat);
       c.mesh.frustumCulled = true;
       scene.add(c.mesh);
@@ -305,16 +319,9 @@
         for(let dx=-GRID_RADIUS;dx<=GRID_RADIUS;dx++){
           const cx=pcx+dx, cz=pcz+dz;
           const ch = ensureChunk(cx,cz);
-          // Newly generated chunks are marked dirty; build now
-          buildMesh(ch);
+          buildMesh(ch); // newly generated chunks are marked dirty; build now
         }
       }
-    }
-
-    function markChunkDirtyAtWorld(wx, wy, wz){
-      const cx=Math.floor(wx/CHUNK.X), cz=Math.floor(wz/CHUNK.Z);
-      const ch=chunks.get(key(cx,cz));
-      if (ch){ ch.dirty = true; } // mesh will update on next build pass
     }
 
     function regenAll(){
@@ -341,7 +348,7 @@
       if(lx<0||lx>=CHUNK.X||ly<0||ly>=CHUNK.Y||lz<0||lz>=CHUNK.Z) return;
       ch.blocks[idx(lx,ly,lz)]=id;
       ch.dirty = true;
-      // If we changed a border block, also mark neighbor chunk dirty so shared faces update
+      // mark neighbors if we touched edges so shared faces update
       if (lx===0)            { const n=chunks.get(key(cx-1,cz)); if(n) n.dirty=true; }
       if (lx===CHUNK.X-1)    { const n=chunks.get(key(cx+1,cz)); if(n) n.dirty=true; }
       if (lz===0)            { const n=chunks.get(key(cx,cz-1)); if(n) n.dirty=true; }
@@ -366,7 +373,6 @@
     });
 
     /* ===== Loop ===== */
-    // Build initial neighborhood once
     updateVisibleGridIfNeeded(camera.position.x,camera.position.z);
 
     let last=performance.now();
@@ -386,10 +392,10 @@
       if(keys.has(" ")) camera.position.addScaledVector(up,vel);
       if(keys.has("control")) camera.position.addScaledVector(up,-vel);
 
-      // Only when entering a new chunk do we (re)ensure grid + rebuild dirty meshes
+      // Only when entering a new chunk ensure the 3x3 and build dirty meshes
       updateVisibleGridIfNeeded(camera.position.x,camera.position.z);
 
-      // Rebuild any chunks that became dirty due to edits
+      // Rebuild any chunks dirtied by edits
       for (const [,ch] of chunks) buildMesh(ch);
 
       info.textContent=`Pos ${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)} | Block ${Object.keys(BLOCK).find(k=>BLOCK[k]===CURRENT_BLOCK)}`;
