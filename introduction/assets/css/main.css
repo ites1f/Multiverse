@@ -2913,7 +2913,7 @@ input, select, textarea {
 /* Header */
 
 	#header {
-		padding: 9em 0 9em 0 ;
+		padding: 18em 0 9em 0 ;
 		min-height: 100vh;
 		background-color: #4686a0;
 		color: rgba(255, 255, 255, 0.75);
