@@ -2922,8 +2922,8 @@ input, select, textarea {
 	padding: 9em 0;            /* was 18em 0 9em 0; centering handles height */
 
 	/* height: fill the screen (mobile-safe) */
-	min-height: 100vh;
-	min-height: 100dvh;
+	min-height: 90vh;
+	min-height: 90dvh;
 
 	/* visuals (unchanged) */
 	background-color: #4686a0;
