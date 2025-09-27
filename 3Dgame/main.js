@@ -1,15 +1,15 @@
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 
-/* ===== Tunables (sliders override these) ===== */
+/* ===== Tunables (sliders override) ===== */
 let GRAVITY  = -0.027;
 let JUMP_VEL =  0.14;
 let WALK     =  0.072;
 let SPRINT   =  0.093;
 
-let GRID_RADIUS = 2;      // render distance (chunks)
-let BUILDS_PER_FRAME = 8; // throttle meshing
+let GRID_RADIUS = 2;        // render distance
+let BUILDS_PER_FRAME = 8;   // throttle meshing
 
-// Multiplicative noise params
+// Multiplicative noise params (flats + mountains)
 let MASK_SCALE   = 0.003;
 let HILL_SCALE   = 0.02;
 let DETAIL_SCALE = 0.08;
@@ -34,8 +34,7 @@ document.body.appendChild(renderer.domElement);
 
 scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x1a2438, 0.9));
 const dir = new THREE.DirectionalLight(0xffffff, 0.6);
-dir.position.set(0.7,1,0.4);
-scene.add(dir);
+dir.position.set(0.7,1,0.4); scene.add(dir);
 
 const info = document.getElementById("info");
 
@@ -71,28 +70,28 @@ addEventListener("keydown", (e) => {
   if (k==="2") CURRENT_BLOCK=BLOCK.GRASS;
   if (k==="3") CURRENT_BLOCK=BLOCK.DIRT;
   if (k==="4") CURRENT_BLOCK=BLOCK.GLASS;
-  if (k==="r") regenAll();
+  if (k==="r") regenAll(); // rebuild with current sliders
 });
 addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
 addEventListener("contextmenu", (e) => e.preventDefault());
 
-/* ===== Sliders wiring ===== */
+/* ===== Slider bindings ===== */
 const bind = (id, setter, fmt=(v)=>v)=> {
   const el = document.getElementById(id);
   const out = document.getElementById(id.replace("Slider","Val"));
-  const sync = ()=> { out.textContent = fmt(el.value); };
+  const sync = ()=> { if(out) out.textContent = fmt(el.value); };
   el.addEventListener("input", (e)=>{ setter(parseFloat(e.target.value)); sync(); });
   sync();
 };
-bind("gSlider",   v => GRAVITY=v,   v=>v);
-bind("jSlider",   v => JUMP_VEL=v,  v=>v);
-bind("wSlider",   v => WALK=v,      v=>v);
-bind("sSlider",   v => SPRINT=v,    v=>v);
+bind("gSlider",   v => GRAVITY=v);
+bind("jSlider",   v => JUMP_VEL=v);
+bind("wSlider",   v => WALK=v);
+bind("sSlider",   v => SPRINT=v);
 bind("rSlider",   v => { GRID_RADIUS = v|0; scheduleGridRefresh(); }, v=>v|0);
 bind("bSlider",   v => { BUILDS_PER_FRAME = v|0; }, v=>v|0);
-bind("maskSlider",v => { MASK_SCALE=v; regenAll(); }, v=>v.toFixed(3));
-bind("hillSlider",v => { HILL_SCALE=v; regenAll(); }, v=>v.toFixed(3));
-bind("detailSlider",v=> { DETAIL_SCALE=v; regenAll(); }, v=>v.toFixed(3));
+bind("maskSlider",v => { MASK_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
+bind("hillSlider",v => { HILL_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
+bind("detailSlider",v=> { DETAIL_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
 bind("mountSlider", v=> { MOUNT_AMP=v; regenAll(); }, v=>v|0);
 
 /* ===== Noise ===== */
@@ -118,11 +117,11 @@ function fbm2(x,y){
   }
   return sum/norm;
 }
-// Multiplicative terrain: flats + mountains
+// Multiplicative terrain = flats + mountains
 function sampleTerrain(wx, wz) {
-  const mask   = fbm2(wx*MASK_SCALE,   wz*MASK_SCALE);    // 0..1
-  const hills  = fbm2(wx*HILL_SCALE,   wz*HILL_SCALE);    // 0..1
-  const detail = fbm2(wx*DETAIL_SCALE, wz*DETAIL_SCALE);  // 0..1
+  const mask   = fbm2(wx*MASK_SCALE,   wz*MASK_SCALE);
+  const hills  = fbm2(wx*HILL_SCALE,   wz*HILL_SCALE);
+  const detail = fbm2(wx*DETAIL_SCALE, wz*DETAIL_SCALE);
   const mountains = (hills * detail) * (mask * 2.5);
   const base = 30 + mask * 10;
   return Math.floor(base + mountains * MOUNT_AMP);
@@ -139,8 +138,7 @@ class Chunk {
   }
 }
 const chunks = new Map();
-const buildQueue = []; // throttle meshing work
-
+const buildQueue = []; // throttle meshing
 const key = (cx,cz)=>`${cx},${cz}`;
 const idx = (x,y,z)=> x + CHUNK.X*(z + CHUNK.Z*y);
 
@@ -213,51 +211,16 @@ function buildMesh(c){
   };
   const pushQuad=(p0,p1,p2,p3,n,color)=>{ pushTri(p0,p1,p2,n,color); pushTri(p0,p2,p3,n,color); };
 
+  // Correct face winding
   const addFace=(x,y,z,dir,color)=>{
     const bx=baseX+x, by=y, bz=baseZ+z;
     switch(dir){
-      case 0: // +X
-        pushQuad(
-          new THREE.Vector3(bx+1,by,  bz  ),
-          new THREE.Vector3(bx+1,by+1,bz  ),
-          new THREE.Vector3(bx+1,by+1,bz+1),
-          new THREE.Vector3(bx+1,by,  bz+1),
-          new THREE.Vector3(1,0,0), color); break;
-      case 1: // -X
-        pushQuad(
-          new THREE.Vector3(bx,  by,  bz+1),
-          new THREE.Vector3(bx,  by+1,bz+1),
-          new THREE.Vector3(bx,  by+1,bz  ),
-          new THREE.Vector3(bx,  by,  bz  ),
-          new THREE.Vector3(-1,0,0), color); break;
-      case 2: // +Y
-        pushQuad(
-          new THREE.Vector3(bx,  by+1,bz  ),
-          new THREE.Vector3(bx,  by+1,bz+1),
-          new THREE.Vector3(bx+1,by+1,bz+1),
-          new THREE.Vector3(bx+1,by+1,bz  ),
-          new THREE.Vector3(0,1,0), color); break;
-      case 3: // -Y
-        pushQuad(
-          new THREE.Vector3(bx,  by,  bz+1),
-          new THREE.Vector3(bx,  by,  bz  ),
-          new THREE.Vector3(bx+1,by,  bz  ),
-          new THREE.Vector3(bx+1,by,  bz+1),
-          new THREE.Vector3(0,-1,0), color); break;
-      case 4: // +Z
-        pushQuad(
-          new THREE.Vector3(bx+1,by,  bz+1),
-          new THREE.Vector3(bx+1,by+1,bz+1),
-          new THREE.Vector3(bx,  by+1,bz+1),
-          new THREE.Vector3(bx,  by,  bz+1),
-          new THREE.Vector3(0,0,1), color); break;
-      case 5: // -Z
-        pushQuad(
-          new THREE.Vector3(bx,  by,  bz  ),
-          new THREE.Vector3(bx,  by+1,bz  ),
-          new THREE.Vector3(bx+1,by+1,bz  ),
-          new THREE.Vector3(bx+1,by,  bz  ),
-          new THREE.Vector3(0,0,-1), color); break;
+      case 0: pushQuad(new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(1,0,0),color); break;
+      case 1: pushQuad(new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx,by,bz),new THREE.Vector3(-1,0,0),color); break;
+      case 2: pushQuad(new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(0,1,0),color); break;
+      case 3: pushQuad(new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(bx,by,bz),new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(0,-1,0),color); break;
+      case 4: pushQuad(new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(0,0,1),color); break;
+      case 5: pushQuad(new THREE.Vector3(bx,by,bz),new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(0,0,-1),color); break;
     }
   };
 
@@ -291,11 +254,9 @@ function buildMesh(c){
   scene.add(c.mesh);
 }
 
-function enqueueBuild(ch){
-  if (!buildQueue.includes(ch)) buildQueue.push(ch);
-}
+function enqueueBuild(ch){ if (!buildQueue.includes(ch)) buildQueue.push(ch); }
 
-/* ===== World Management ===== */
+/* ===== World management ===== */
 let lastChunkX = Infinity, lastChunkZ = Infinity;
 function ensureChunk(cx,cz){
   const k = key(cx,cz);
@@ -304,11 +265,7 @@ function ensureChunk(cx,cz){
   if(!ch.generated) generateChunk(ch);
   return ch;
 }
-function scheduleGridRefresh(){
-  // Force a re-check on next tick
-  lastChunkX = Infinity;
-  lastChunkZ = Infinity;
-}
+function scheduleGridRefresh(){ lastChunkX = Infinity; lastChunkZ = Infinity; }
 function updateVisibleGridIfNeeded(wx,wz){
   const pcx=Math.floor(wx/CHUNK.X), pcz=Math.floor(wz/CHUNK.Z);
   if (pcx === lastChunkX && pcz === lastChunkZ) return;
@@ -321,40 +278,27 @@ function updateVisibleGridIfNeeded(wx,wz){
   }
 }
 function regenAll(){
+  // clear previous
   for(const [,ch] of chunks){
     if(ch.mesh){ scene.remove(ch.mesh); ch.mesh.geometry.dispose(); ch.mesh.material.dispose(); }
   }
   chunks.clear();
   buildQueue.length = 0;
-  lastChunkX = Infinity; lastChunkZ = Infinity;
-  updateVisibleGridIfNeeded(player.pos.x,player.pos.z);
+
+  // force grid load around current player pos
+  scheduleGridRefresh();
+  updateVisibleGridIfNeeded(player.pos.x, player.pos.z);
+
+  // mark & queue all loaded chunks immediately
+  for(const [,ch] of chunks){
+    ch.dirty = true;
+    enqueueBuild(ch);
+  }
 }
 
-/* ===== Block Editing ===== */
-function getBlock(wx,wy,wz){
-  const cx=Math.floor(wx/CHUNK.X), cz=Math.floor(wz/CHUNK.Z);
-  const ch=chunks.get(key(cx,cz)); if(!ch) return BLOCK.AIR;
-  const lx=wx-cx*CHUNK.X, ly=wy, lz=wz-cz*CHUNK.Z;
-  if(lx<0||lx>=CHUNK.X||ly<0||ly>=CHUNK.Y||lz<0||lz>=CHUNK.Z) return BLOCK.AIR;
-  return ch.blocks[idx(lx,ly,lz)];
-}
-function setBlock(wx,wy,wz,id){
-  const cx=Math.floor(wx/CHUNK.X), cz=Math.floor(wz/CHUNK.Z);
-  const ch=chunks.get(key(cx,cz)); if(!ch) return;
-  const lx=wx-cx*CHUNK.X, ly=wy, lz=wz-cz*CHUNK.Z;
-  if(lx<0||lx>=CHUNK.X||ly<0||ly>=CHUNK.Y||lz<0||lz>=CHUNK.Z) return;
-  ch.blocks[idx(lx,ly,lz)]=id;
-  ch.dirty = true;
-  enqueueBuild(ch);
-}
+/* ===== Player / Picking / Physics ===== */
+const player = { pos:new THREE.Vector3(8, 60, 8), vel:new THREE.Vector3(), size:new THREE.Vector3(0.6,1.8,0.6), grounded:false };
 
-/* ===== Player & Picking ===== */
-const player = {
-  pos: new THREE.Vector3(8, 60, 8),
-  vel: new THREE.Vector3(),
-  size: new THREE.Vector3(0.6, 1.8, 0.6),
-  grounded: false
-};
 function eyePos(){ return player.pos.clone().add(new THREE.Vector3(0, player.size.y*0.75, 0)); }
 function pick(maxDist=8){
   const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch,yaw,0,"YXZ"));
@@ -372,7 +316,7 @@ addEventListener("mousedown",(e)=>{
   if(e.button===2) setBlock(p.place.x,p.place.y,p.place.z,CURRENT_BLOCK);
 });
 
-/* ===== Physics (axis-separated) ===== */
+// collisions (axis-separated)
 const EPS = 0.001;
 function eachCollidingBlock(pos, size, cb){
   const half = size.clone().multiplyScalar(0.5);
@@ -432,18 +376,20 @@ function moveAndCollide(dtFactor){
   });
 }
 
-/* ===== Loop ===== */
-scheduleGridRefresh();
+/* ===== Startup & Loop ===== */
+
+// 🔥 Ensure terrain shows on first load
+regenAll();
 
 let last = performance.now();
 function animate(now){
   const dt=(now-last)/1000; last=now;
-  const dtFactor = Math.min(dt*60, 2); // normalize to ~60fps
+  const dtFactor = Math.min(dt*60, 2);
 
-  // Look
+  // look
   camera.rotation.set(pitch,yaw,0,"YXZ");
 
-  // Move input (Shift = sprint; avoids Ctrl+W entirely)
+  // move (Shift = sprint; no Ctrl conflicts)
   const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)).multiplyScalar(-1).normalize();
   const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
   let speed = keys.has("shift") ? SPRINT : WALK;
@@ -453,26 +399,21 @@ function animate(now){
   if(keys.has("d")) player.vel.addScaledVector(right,    speed);
   if(keys.has(" ") && player.grounded) player.vel.y = JUMP_VEL;
 
-  // Gravity & physics
+  // gravity + physics
   player.vel.y += GRAVITY * dtFactor;
   moveAndCollide(dtFactor);
   player.vel.x *= 0.91; player.vel.z *= 0.91;
 
-  // Camera follow
   camera.position.copy(player.pos).add(new THREE.Vector3(0, player.size.y*0.4, 0));
 
-  // Chunks: ensure visible grid & throttle builds
+  // ensure grid & build limited chunks per frame
   updateVisibleGridIfNeeded(player.pos.x, player.pos.z);
   for(let i=0;i<BUILDS_PER_FRAME && buildQueue.length;i++){
-    const ch = buildQueue.shift();
-    buildMesh(ch);
+    buildMesh(buildQueue.shift());
   }
 
   info.textContent = `Pos ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(1)}, ${player.pos.z.toFixed(1)} | grounded:${player.grounded} | queue:${buildQueue.length}`;
   renderer.render(scene,camera);
   requestAnimationFrame(animate);
 }
-// Force initial terrain generation
-regenAll();
-
 requestAnimationFrame(animate);
