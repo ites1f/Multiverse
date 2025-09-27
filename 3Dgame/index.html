@@ -134,50 +134,88 @@
          grass: top(2,0) side(3,0) bottom(1,0)
          glass: (4,0)
     */
-    const atlas = new THREE.TextureLoader().load("atlas.png");
+/* ===== Texture atlas =====
+   Put atlas.png in the same folder as index.html.
+   Make sure it's power-of-two sized (e.g. 64x64, 128x128, 256x256).
+   If you used the 4×4 starter atlas, leave TILES_X/Y = 4.
+*/
+    const atlas = new THREE.TextureLoader().load(
+      "atlas.png",
+      () => console.log("[atlas] loaded", atlas.image?.width, "x", atlas.image?.height),
+      undefined,
+      (err) => console.error("[atlas] FAILED to load", err)
+    );
+      
+    // Important: our UVs are written with (0,0) = top-left.
+    // Three.js expects bottom-left unless we turn off flipY.
+    atlas.flipY = false;
+      
+    // Be strict & predictable for pixel art atlases
     atlas.magFilter = THREE.NearestFilter;
-    atlas.minFilter = THREE.NearestMipMapNearestFilter;
-    atlas.generateMipmaps = true;
-
-    const CHUNK_MAT = new THREE.MeshLambertMaterial({
-      map: atlas, fog: true, side: THREE.FrontSide,
-      alphaTest: 0.5, depthWrite: true
+    // If your atlas is power-of-two, you can use mipmaps; if not, use NearestFilter.
+    const isPOT = (n)=> (n & (n-1)) === 0;
+    const w = ()=> atlas.image?.width|0, h = ()=> atlas.image?.height|0;
+    atlas.minFilter = (atlas.image && isPOT(w()) && isPOT(h()))
+      ? THREE.NearestMipMapNearestFilter
+      : THREE.NearestFilter;
+      
+    atlas.wrapS = THREE.ClampToEdgeWrapping;
+    atlas.wrapT = THREE.ClampToEdgeWrapping;
+    // Optional: sRGB for nicer colors
+    if (atlas.colorSpace !== undefined) atlas.colorSpace = THREE.SRGBColorSpace;
+      
+    // ---- Material (keep it simple to rule out lighting issues)
+    const CHUNK_MAT = new THREE.MeshBasicMaterial({
+      map: atlas,
+      transparent: false,
     });
-
-    // If your atlas is 4×4 tiles (from the PNG I sent):
+    
+    // Toggle: press "t" to switch Basic (unlit) <-> Lambert (lit) for debugging
+    let useBasic = true;
+    addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "t") {
+        useBasic = !useBasic;
+        const mat = useBasic
+          ? new THREE.MeshBasicMaterial({ map: atlas })
+          : new THREE.MeshLambertMaterial({ map: atlas, fog: true, alphaTest: 0.5 });
+        for (const [,ch] of chunks) if (ch.mesh) ch.mesh.material = mat;
+        console.log("[mat] now using", useBasic ? "MeshBasicMaterial" : "MeshLambertMaterial");
+      }
+    });
+    
+    // ---- UV helpers (add half-pixel inset to avoid bleeding)
     const TILES_X = 4, TILES_Y = 4;
     function tileUV(tx, ty){
       const su = 1 / TILES_X, sv = 1 / TILES_Y;
-      return { u0: tx*su, v0: ty*sv, u1: (tx+1)*su, v1: (ty+1)*sv };
+      // inset ~ 0.5px to avoid sampling neighbors
+      const insetU = (0.5 / (atlas.image?.width  || 1024));
+      const insetV = (0.5 / (atlas.image?.height || 1024));
+      const u0 = tx*su + insetU, v0 = ty*sv + insetV;
+      const u1 = (tx+1)*su - insetU, v1 = (ty+1)*sv - insetV;
+      return { u0, v0, u1, v1 };
     }
+    
     const UV_TILES = {
       STONE: tileUV(0,0),
-      GRASS: tileUV(1,0),
-      DIRT:  tileUV(2,0),
-      GLASS: tileUV(3,0),
-      LOG:   tileUV(0,1),
-      LEAF:  tileUV(1,1),
+      GRASS_TOP: tileUV(2,0),
+      GRASS_SIDE: tileUV(3,0),
+      DIRT:  tileUV(1,0),
+      GLASS: tileUV(4,0) // if your atlas actually has this; otherwise pick a valid cell
     };
-    // Map block → per-face tiles (grass has different top/bottom)
-    const blockTiles = {
-      [BLOCK.STONE]: { all: UV_TILES.STONE },
-      [BLOCK.DIRT]:  { all: UV_TILES.DIRT  },
-      [BLOCK.GLASS]: { all: UV_TILES.GLASS },
-      [BLOCK.LOG]:   { all: UV_TILES.LOG   },
-      [BLOCK.LEAF]:  { all: UV_TILES.LEAF  },
-      [BLOCK.GRASS]: {
-        top:    UV_TILES.GRASS,
-        side:   UV_TILES.GRASS,  // use same green for side (simple)
-        bottom: UV_TILES.DIRT
-      }
-    };
+    
+    // Map block → per-face tiles (grass uses top/side/bottom)
     function uvFor(blockId, faceDir){
-      const def = blockTiles[blockId] || blockTiles[BLOCK.STONE];
-      if (def.all) return def.all;
-      if (faceDir === 2 && def.top)    return def.top;     // +Y
-      if (faceDir === 3 && def.bottom) return def.bottom;  // -Y
-      return def.side || def.top || def.bottom || UV_TILES.STONE;
+      if (blockId === BLOCK.STONE) return UV_TILES.STONE;
+      if (blockId === BLOCK.DIRT)  return UV_TILES.DIRT;
+      if (blockId === BLOCK.GLASS) return UV_TILES.GLASS;
+      if (blockId === BLOCK.GRASS){
+        if (faceDir === 2) return UV_TILES.GRASS_TOP;  // +Y
+        if (faceDir === 3) return UV_TILES.DIRT;       // -Y
+        return UV_TILES.GRASS_SIDE;                    // sides
+      }
+      return UV_TILES.STONE;
     }
+
 
     /* ===== Input ===== */
     const keys = new Set();
