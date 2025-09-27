@@ -137,7 +137,9 @@
     let DETAIL_SCALE = 0.080;
     let MOUNT_AMP    = 5;          // sharpness of ridges
       
-    
+    let FRICTION_GROUND = 0.86; // lower => more friction (per-60fps factor)
+    let FRICTION_AIR    = 0.93; // higher => slipperier in air
+
 
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:256, Z:16 };
@@ -164,6 +166,7 @@
     const info = document.getElementById("info");
 
     /* ===== Input ===== */
+    let hudVisible = false;
     const keys = new Set();
     let pointerLocked = false;
     let yaw = 0, pitch = 0;
@@ -191,12 +194,23 @@
     addEventListener("keydown", (e) => {
       const k = e.key.toLowerCase();
       keys.add(k);
+
+      // F3: toggle entire HUD (prevent browser Find)
+      if (k === "f3") {
+        hudVisible = !hudVisible;
+        document.getElementById("hud").style.display = hudVisible ? "block" : "none";
+        e.preventDefault();
+        e.stopPropagation();
+        return; // stop processing other bindings
+      }
+    
       if (k==="1") CURRENT_BLOCK=BLOCK.STONE;
       if (k==="2") CURRENT_BLOCK=BLOCK.GRASS;
       if (k==="3") CURRENT_BLOCK=BLOCK.DIRT;
       if (k==="4") CURRENT_BLOCK=BLOCK.GLASS;
-      if (k==="r") regenAll(); // rebuild with current sliders
+      if (k==="r") regenAll();
     });
+
     addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
     addEventListener("contextmenu", (e) => e.preventDefault());
 
@@ -605,7 +619,6 @@
     /* ===== Startup & Loop ===== */
     // Ensure terrain shows on first load
     regenAll();
-
     let last = performance.now();
     function animate(now){
       const dt=(now-last)/1000; last=now;
@@ -627,7 +640,11 @@
       // gravity + physics
       player.vel.y += GRAVITY * dtFactor;
       moveAndCollide(dtFactor);
-      player.vel.x *= 0.91; player.vel.z *= 0.91;
+      const f = player.grounded ? FRICTION_GROUND : FRICTION_AIR;
+      // make it framerate-independent: raise to dtFactor (≈1 at 60fps)
+      player.vel.x *= Math.pow(f, dtFactor);
+      player.vel.z *= Math.pow(f, dtFactor);
+
 
       camera.position.copy(player.pos).add(new THREE.Vector3(0, player.size.y*0.4, 0));
 
