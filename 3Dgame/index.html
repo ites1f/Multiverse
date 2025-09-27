@@ -30,7 +30,7 @@
 
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:64, Z:16 };
-    const GRID_RADIUS = 4;
+    const GRID_RADIUS = 3;
     const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4 };
     let CURRENT_BLOCK = BLOCK.STONE;
 
@@ -364,8 +364,8 @@ addEventListener("mousedown",(e)=>{
       size: new THREE.Vector3(0.6, 1.8, 0.6),
       grounded: false
     };
-    const GRAVITY = -0.017;
-    const JUMP_VEL = 0.34;
+    const GRAVITY = -0.007;
+    const JUMP_VEL = 0.14;
 
     function isSolid(id){ return id!==BLOCK.AIR; }
 
