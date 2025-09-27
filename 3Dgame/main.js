@@ -247,8 +247,9 @@ function buildMesh(c){
   const mat=new THREE.MeshLambertMaterial({
     vertexColors:true,fog:true,
     transparent:true,opacity:1.0,
-    depthWrite:true,side:THREE.FrontSide
+    depthWrite:true,side:THREE.DoubleSide
   });
+
 
   c.mesh=new THREE.Mesh(geom,mat);
   scene.add(c.mesh);
