@@ -3,143 +3,106 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Web Voxel Prototype</title>
+  <title>Web Voxel Prototype (Textured)</title>
   <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-      background: #0b1220;
-      overflow: hidden;
-    }
-
+    html, body { margin:0; height:100%; background:#0b1220; overflow:hidden; }
     #hud {
-      position: fixed;
-      top: 12px;
-      left: 12px;
-      font: 14px ui-monospace, Consolas, monospace;
-      color: #e9eefc;
-      background: rgba(0,0,0,.35);
-      padding: 8px 10px;
-      border-radius: 10px;
-      user-select: none;
-      max-height: 95vh;
-      overflow-y: auto;
+      position: fixed; top: 12px; left: 12px;
+      font: 14px ui-monospace, Consolas, monospace; color: #e9eefc;
+      background: rgba(0,0,0,.35); padding: 8px 10px; border-radius: 10px;
+      user-select: none; max-height: 95vh; overflow-y: auto; width: max-content;
     }
-    #hud input[type=range] {
-      width: 140px;
-      vertical-align: middle;
-      margin: 4px 6px;
-    }
-
-    #cross {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      width: 18px;
-      height: 18px;
-      margin: -9px 0 0 -9px;
-      pointer-events: none;
-    }
-    #cross:before, #cross:after {
-      content: "";
-      position: absolute;
-      background: #e9eefc;
-    }
+    #hud input[type=range]{ width: 140px; vertical-align: middle; margin: 4px 6px; }
+    #cross { position: fixed; top: 50%; left: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; pointer-events: none; }
+    #cross:before, #cross:after { content: ""; position: absolute; background: #e9eefc; }
     #cross:before { left: 8px; top: 0; width: 2px; height: 18px; }
     #cross:after  { top: 8px; left: 0; height: 2px; width: 18px; }
   </style>
 </head>
 <body>
   <div id="hud">
-    <div><b>Voxel Prototype</b> — click to lock mouse</div>
+    <div><b>Voxel Prototype</b> — click to lock mouse • F3 toggles HUD</div>
     <div>WASD move • Space jump • Shift sprint • Left: break • Right: place • 1–4 block • R: regen</div>
     <div id="info"></div>
 
     <hr>
     <b>Movement</b><br>
-    Gravity <input id="gSlider" type="range" min="-0.1" max="0" step="0.001" value="-0.027"> <span id="gVal"></span><br>
-    JumpVel <input id="jSlider" type="range" min="0" max="0.5" step="0.01" value="0.14"> <span id="jVal"></span><br>
+    Gravity <input id="gSlider" type="range" min="-0.1" max="0" step="0.001" value="-0.003"> <span id="gVal"></span><br>
+    JumpVel <input id="jSlider" type="range" min="0" max="1.0" step="0.01" value="0.39"> <span id="jVal"></span><br>
     WalkSpd <input id="wSlider" type="range" min="0" max="0.2" step="0.001" value="0.072"> <span id="wVal"></span><br>
     SprintSpd <input id="sSlider" type="range" min="0" max="0.2" step="0.001" value="0.093"> <span id="sVal"></span><br>
 
     <hr>
     <b>Render</b><br>
-    RenderDist <input id="rSlider" type="range" min="0" max="10" step="1" value="3"> <span id="rVal"></span><br>
-    Builds/frame <input id="bSlider" type="range" min="1" max="24" step="1" value="12"> <span id="bVal"></span><br>
+    RenderDist <input id="rSlider" type="range" min="0" max="10" step="1" value="6"> <span id="rVal"></span><br>
+    Builds/frame <input id="bSlider" type="range" min="1" max="24" step="1" value="6"> <span id="bVal"></span><br>
 
     <hr>
-    <b>Noise (Multiplicative)</b><br>
-    MaskScale <input id="maskSlider" type="range" min="0.001" max="0.02" step="0.001" value="0.003"> <span id="maskVal"></span><br>
-    HillScale <input id="hillSlider" type="range" min="0.01" max="0.08" step="0.001" value="0.02"> <span id="hillVal"></span><br>
-    DetailScale <input id="detailSlider" type="range" min="0.05" max="0.3" step="0.005" value="0.08"> <span id="detailVal"></span><br>
-    MountainAmp <input id="mountSlider" type="range" min="5" max="80" step="1" value="40"> <span id="mountVal"></span><br>
-    
-    <hr>
     <b>Biome / Shape</b><br>
-    BiomeScale <input id="biomeSlider" type="range" min="0.0005" max="0.01" step="0.0001" value="0.0012"> <span id="biomeVal"></span><br>
+    BiomeScale <input id="biomeSlider" type="range" min="0.0005" max="0.02" step="0.0001" value="0.0100"> <span id="biomeVal"></span><br>
     WarpScale <input id="warpScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="warpScaleVal"></span><br>
     WarpStrength <input id="warpStrengthSlider" type="range" min="0" max="50" step="1" value="18"> <span id="warpStrengthVal"></span><br>
 
-    PlainsBase <input id="plainsBaseSlider" type="range" min="20" max="120" step="1" value="64"> <span id="plainsBaseVal"></span><br>
+    PlainsBase <input id="plainsBaseSlider" type="range" min="0" max="140" step="1" value="33"> <span id="plainsBaseVal"></span><br>
     PlainsWobble <input id="plainsWobbleSlider" type="range" min="0" max="10" step="0.1" value="3.0"> <span id="plainsWobbleVal"></span><br>
 
     HillsScale <input id="hillsScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.015"> <span id="hillsScaleVal"></span><br>
-    HillsAmp <input id="hillsAmpSlider" type="range" min="0" max="30" step="1" value="20"> <span id="hillsAmpVal"></span><br>
+    HillsAmp <input id="hillsAmpSlider" type="range" min="0" max="60" step="1" value="20"> <span id="hillsAmpVal"></span><br>
 
-    MountScale <input id="mountScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.008"> <span id="mountScaleVal"></span><br>
-    MountRidges <input id="mountRidgesSlider" type="range" min="10" max="220" step="1" value="140"> <span id="mountRidgesVal"></span><br>
+    MountScale <input id="mountScaleSlider" type="range" min="0.003" max="0.05" step="0.001" value="0.005"> <span id="mountScaleVal"></span><br>
+    MountRidges <input id="mountRidgesSlider" type="range" min="10" max="300" step="1" value="220"> <span id="mountRidgesVal"></span><br>
 
     SpotScale <input id="spotScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="spotScaleVal"></span><br>
-    SpotThreshold <input id="spotThresholdSlider" type="range" min="0" max="1" step="0.01" value="0.70"> <span id="spotThresholdVal"></span><br>
-    SpotAmp <input id="spotAmpSlider" type="range" min="0" max="30" step="1" value="12"> <span id="spotAmpVal"></span><br>
-
-</div>
+    SpotThreshold <input id="spotThresholdSlider" type="range" min="0" max="1" step="0.01" value="0.55"> <span id="spotThresholdVal"></span><br>
+    SpotAmp <input id="spotAmpSlider" type="range" min="0" max="60" step="1" value="30"> <span id="spotAmpVal"></span><br>
+  </div>
 
   <div id="cross"></div>
 
   <script type="module">
     import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
     /* ===== Tunables (sliders override) ===== */
     let GRAVITY  = -0.003;
     let JUMP_VEL =  0.39;
     let WALK     =  0.072;
     let SPRINT   =  0.093;
-      
+
+    // friction
+    let FRICTION_GROUND = 0.86;
+    let FRICTION_AIR    = 0.93;
+
     // --- Biome & shape tuning ---
-    let BIOME_SCALE     = 0.0100;  // biome size
-    let WARP_SCALE      = 0.012;   // domain warp frequency
-    let WARP_STRENGTH   = 18.0;    // warp strength
-      
+    let BIOME_SCALE     = 0.0100;
+    let WARP_SCALE      = 0.012;
+    let WARP_STRENGTH   = 18.0;
+
     // Plains
-    let PLAINS_BASE     = 33;      // base Y level
-    let PLAINS_WOBBLE   = 3.0;     // small noise variation
-      
+    let PLAINS_BASE     = 33;
+    let PLAINS_WOBBLE   = 3.0;
+
     // Hills
-    let HILLS_SCALE     = 0.015;   // hill frequency
-    let HILLS_AMP       = 20;      // hill height
-      
+    let HILLS_SCALE     = 0.015;
+    let HILLS_AMP       = 20;
+
     // Mountains (ridged)
-    let MOUNT_SCALE     = 0.005;   // mountain frequency
-    let MOUNT_RIDGES    = 220;     // mountain peak height
-      
-    // “Hilly patches” sprinkled in plains
-    let SPOT_SCALE      = 0.012;   // patch frequency
-    let SPOT_THRESHOLD  = 0.55;    // higher = fewer spots
-    let SPOT_AMPLITUDE  = 30;      // bump height when a spot hits
-      
+    let MOUNT_SCALE     = 0.005;
+    let MOUNT_RIDGES    = 220;
+
+    // “Hilly patches”
+    let SPOT_SCALE      = 0.012;
+    let SPOT_THRESHOLD  = 0.55;
+    let SPOT_AMPLITUDE  = 30;
+
     // World management
-    let GRID_RADIUS = 6;           // render distance (6 = 13×13 chunks)
-    let BUILDS_PER_FRAME = 6;      // chunk mesh build throttle
-      
-    // Multiplicative noise params (backup shaping)
+    let GRID_RADIUS = 6;
+    let BUILDS_PER_FRAME = 6;
+
+    // backup shaping (unused in terrain formula but kept for sliders)
     let MASK_SCALE   = 0.001;
     let HILL_SCALE   = 0.020;
     let DETAIL_SCALE = 0.080;
-    let MOUNT_AMP    = 5;          // sharpness of ridges
-      
-    let FRICTION_GROUND = 0.86; // lower => more friction (per-60fps factor)
-    let FRICTION_AIR    = 0.93; // higher => slipperier in air
-
+    let MOUNT_AMP    = 5;
 
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:256, Z:16 };
@@ -149,10 +112,8 @@
     /* ===== Scene ===== */
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0b1220);
-    // ▼ extended so tall mountains remain visible
     scene.fog = new THREE.Fog(0x0b1220, 80, 600);
-
-    const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000); // far++
+    const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000);
     const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" });
     renderer.setSize(innerWidth, innerHeight);
     renderer.setPixelRatio(devicePixelRatio);
@@ -165,11 +126,49 @@
 
     const info = document.getElementById("info");
 
+    /* ===== Texture atlas =====
+       Put atlas.png in same folder. Assumed 16x16 tiles; change TILES if different.
+       Tile assignments:
+         stone: (0,0)
+         dirt:  (1,0)
+         grass: top(2,0) side(3,0) bottom(1,0)
+         glass: (4,0)
+    */
+    const atlas = new THREE.TextureLoader().load("atlas.png");
+    atlas.magFilter = THREE.NearestFilter;
+    atlas.minFilter = THREE.NearestMipMapNearestFilter;
+    atlas.generateMipmaps = true;
+
+    const CHUNK_MAT = new THREE.MeshLambertMaterial({
+      map: atlas, fog: true, side: THREE.FrontSide,
+      alphaTest: 0.5, depthWrite: true
+    });
+
+    const TILES = 16;
+    function tileUV(tx, ty){
+      const s = 1/TILES;
+      return { u0: tx*s, v0: ty*s, u1: (tx+1)*s, v1: (ty+1)*s };
+    }
+    // faces: 0:+X, 1:-X, 2:+Y(top), 3:-Y(bottom), 4:+Z, 5:-Z
+    const blockTiles = {
+      [BLOCK.STONE]: { all: tileUV(0,0) },
+      [BLOCK.DIRT]:  { all: tileUV(1,0) },
+      [BLOCK.GRASS]: { top: tileUV(2,0), side: tileUV(3,0), bottom: tileUV(1,0) },
+      [BLOCK.GLASS]: { all: tileUV(4,0) }
+    };
+    function uvFor(blockId, faceDir){
+      const def = blockTiles[blockId] || blockTiles[BLOCK.STONE];
+      if (def.all) return def.all;
+      if (faceDir === 2 && def.top) return def.top;
+      if (faceDir === 3 && def.bottom) return def.bottom;
+      return def.side || def.top || def.bottom || tileUV(0,0);
+    }
+
     /* ===== Input ===== */
-    let hudVisible = false;
     const keys = new Set();
     let pointerLocked = false;
     let yaw = 0, pitch = 0;
+    let hudVisible = true;
 
     addEventListener("resize", () => {
       camera.aspect = innerWidth/innerHeight;
@@ -195,22 +194,19 @@
       const k = e.key.toLowerCase();
       keys.add(k);
 
-      // F3: toggle entire HUD (prevent browser Find)
       if (k === "f3") {
         hudVisible = !hudVisible;
         document.getElementById("hud").style.display = hudVisible ? "block" : "none";
-        e.preventDefault();
-        e.stopPropagation();
-        return; // stop processing other bindings
+        e.preventDefault(); e.stopPropagation();
+        return;
       }
-    
+
       if (k==="1") CURRENT_BLOCK=BLOCK.STONE;
       if (k==="2") CURRENT_BLOCK=BLOCK.GRASS;
       if (k==="3") CURRENT_BLOCK=BLOCK.DIRT;
       if (k==="4") CURRENT_BLOCK=BLOCK.GLASS;
       if (k==="r") regenAll();
     });
-
     addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
     addEventListener("contextmenu", (e) => e.preventDefault());
 
@@ -222,56 +218,24 @@
       el.addEventListener("input", (e)=>{ setter(parseFloat(e.target.value)); regenAll(); sync(); });
       sync();
     };
-    bind("gSlider",   v => { GRAVITY=v; }, v=>v);
-    bind("jSlider",   v => { JUMP_VEL=v; }, v=>v);
-    bind("wSlider",   v => { WALK=v; }, v=>v);
-    bind("sSlider",   v => { SPRINT=v; }, v=>v);
+    bind("gSlider",   v => GRAVITY=v);
+    bind("jSlider",   v => JUMP_VEL=v);
+    bind("wSlider",   v => WALK=v);
+    bind("sSlider",   v => SPRINT=v);
     bind("rSlider",   v => { GRID_RADIUS = v|0; scheduleGridRefresh(); }, v=>v|0);
     bind("bSlider",   v => { BUILDS_PER_FRAME = v|0; }, v=>v|0);
-    bind("maskSlider",v => { MASK_SCALE=v; }, v=>(+v).toFixed(3));
-    bind("hillSlider",v => { HILL_SCALE=v; }, v=>(+v).toFixed(3));
-    bind("detailSlider",v=> { DETAIL_SCALE=v; }, v=>(+v).toFixed(3));
-    bind("mountSlider", v=> { MOUNT_AMP=v; }, v=>v|0);
-
     bind("biomeSlider",     v => { BIOME_SCALE = v; }, v=> (+v).toFixed(4));
     bind("warpScaleSlider", v => { WARP_SCALE = v; }, v=> (+v).toFixed(3));
     bind("warpStrengthSlider", v => { WARP_STRENGTH = v; }, v=> v|0);
-
     bind("plainsBaseSlider",   v => { PLAINS_BASE = v; }, v=> v|0);
     bind("plainsWobbleSlider", v => { PLAINS_WOBBLE = v; }, v=> (+v).toFixed(1));
-
     bind("hillsScaleSlider", v => { HILLS_SCALE = v; }, v=> (+v).toFixed(3));
     bind("hillsAmpSlider",   v => { HILLS_AMP = v; }, v=> v|0);
-
     bind("mountScaleSlider",  v => { MOUNT_SCALE = v; }, v=> (+v).toFixed(3));
     bind("mountRidgesSlider", v => { MOUNT_RIDGES = v; }, v=> v|0);
-
     bind("spotScaleSlider",     v => { SPOT_SCALE = v; }, v=> (+v).toFixed(3));
     bind("spotThresholdSlider", v => { SPOT_THRESHOLD = v; }, v=> (+v).toFixed(2));
     bind("spotAmpSlider",       v => { SPOT_AMPLITUDE = v; }, v=> v|0);
-
-    // Ridged noise from fbm: sharp peaks for mountains
-    function ridged(x, y, octaves=4){
-      let amp=1, freq=1, sum=0, norm=0;
-      for(let i=0;i<octaves;i++){
-        const r = 1.0 - Math.abs(0.5 - fbm2(x*freq, y*freq)) * 2.0;
-        sum += r * amp;
-        norm += amp;
-        amp *= 0.5;
-        freq *= 2.0;
-      }
-      return sum / norm; // ~0..1
-    }
-
-    // Simple domain warp: offset coords before sampling
-    function warp2(x, y){
-      const wx = fbm2(x*WARP_SCALE*2.13, y*WARP_SCALE*0.91);
-      const wy = fbm2(x*WARP_SCALE*1.31, y*WARP_SCALE*1.73);
-      return { x: x + (wx-0.5)*2*WARP_STRENGTH, y: y + (wy-0.5)*2*WARP_STRENGTH };
-    }
-
-    // Smoothstep helper for blending
-    function sstep(a,b,t){ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(3-2*u); }
 
     /* ===== Noise ===== */
     function hash2i(x, y) {
@@ -296,48 +260,43 @@
       }
       return sum/norm;
     }
-
-    // 1.18-like blend with lower mountain threshold so peaks appear more often
+    function ridged(x, y, octaves=4){
+      let amp=1, freq=1, sum=0, norm=0;
+      for(let i=0;i<octaves;i++){
+        const r = 1.0 - Math.abs(0.5 - fbm2(x*freq, y*freq)) * 2.0;
+        sum += r * amp;
+        norm += amp;
+        amp *= 0.5;
+        freq *= 2.0;
+      }
+      return sum / norm;
+    }
+    function warp2(x, y){
+      const wx = fbm2(x*WARP_SCALE*2.13, y*WARP_SCALE*0.91);
+      const wy = fbm2(x*WARP_SCALE*1.31, y*WARP_SCALE*1.73);
+      return { x: x + (wx-0.5)*2*WARP_STRENGTH, y: y + (wy-0.5)*2*WARP_STRENGTH };
+    }
+    function sstep(a,b,t){ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(3-2*u); }
     function sampleTerrain(wx, wz) {
-      // 1) Domain warp for more organic shapes
-      const w = warp2(wx, wz);
-      const x = w.x, y = w.y;
-
-      // 2) Biome map (very low freq) split into 3 bands
-      const biomeN = fbm2(x*BIOME_SCALE, y*BIOME_SCALE); // 0..1
+      const w = warp2(wx, wz); const x = w.x, y = w.y;
+      const biomeN = fbm2(x*BIOME_SCALE, y*BIOME_SCALE);
       const tPlains    = sstep(0.00, 0.35, biomeN);
       const tHills     = sstep(0.30, 0.65, biomeN);
-      const tMountains = sstep(0.55, 0.95, biomeN); // lowered threshold
-
-      // Normalize weights
+      const tMountains = sstep(0.55, 0.95, biomeN);
       const wSum = tPlains + tHills + tMountains + 1e-6;
-      const bP = tPlains / wSum, bH = tHills / wSum, bM = tMountains / wSum;
-
-      // 3) Generators
-      const plains = PLAINS_BASE
-                   + (fbm2(x*0.03, y*0.03) - 0.5) * 2 * PLAINS_WOBBLE;
-
-      const hills = PLAINS_BASE + 3
-                  + fbm2(x*HILLS_SCALE, y*HILLS_SCALE) * HILLS_AMP;
-
-      const mountains = PLAINS_BASE + 6
-                      + ridged(x*MOUNT_SCALE, y*MOUNT_SCALE) * MOUNT_RIDGES;
-
-      // 4) Blend
-      let h = bP * plains + bH * hills + bM * mountains;
-
-      // 5) Optional spot bumps (mildly affecting plains/hills)
+      const bP = tPlains/wSum, bH=tHills/wSum, bM=tMountains/wSum;
+      const plains = PLAINS_BASE + (fbm2(x*0.03, y*0.03)-0.5)*2*PLAINS_WOBBLE;
+      const hills  = PLAINS_BASE + 3 + fbm2(x*HILLS_SCALE, y*HILLS_SCALE)*HILLS_AMP;
+      const mountains = PLAINS_BASE + 6 + ridged(x*MOUNT_SCALE, y*MOUNT_SCALE)*MOUNT_RIDGES;
+      let h = bP*plains + bH*hills + bM*mountains;
       const spot = fbm2(x*SPOT_SCALE, y*SPOT_SCALE);
       if (spot > SPOT_THRESHOLD){
         const k = (spot - SPOT_THRESHOLD) / (1 - SPOT_THRESHOLD);
-        const spotWeight = bP * 1.0 + bH * 0.6;
+        const spotWeight = bP*1.0 + bH*0.6;
         h += k * SPOT_AMPLITUDE * spotWeight;
       }
-
       return Math.floor(h);
     }
-
-    // For quick sanity: set to a number to force flat world (e.g., 64). Set to null to use noise.
     const FLAT_WORLD_Y = null;
 
     /* ===== World ===== */
@@ -351,7 +310,7 @@
       }
     }
     const chunks = new Map();
-    const buildQueue = []; // throttle meshing
+    const buildQueue = [];
     const key = (cx,cz)=>`${cx},${cz}`;
     const idx = (x,y,z)=> x + CHUNK.X*(z + CHUNK.Z*y);
 
@@ -361,7 +320,6 @@
       for(let z=0;z<CHUNK.Z;z++){
         for(let x=0;x<CHUNK.X;x++){
           const wx=baseX+x, wz=baseZ+z;
-          // ▼ clamp so we always have space for the grass cap inside the chunk
           const hRaw = FLAT_WORLD_Y ?? sampleTerrain(wx,wz);
           const h = Math.max(1, Math.min(CHUNK.Y - 2, hRaw));
           for(let y=0;y<CHUNK.Y;y++){
@@ -376,7 +334,7 @@
       c.generated=true;
       c.dirty=true;
       enqueueBuild(c);
-      markNeighborsDirty(c.cx,c.cz);
+      markNeighborsDirty(c.cx, c.cz); // keep borders fresh
     }
 
     function shouldDrawFace(cur, neighbor){
@@ -384,14 +342,7 @@
       if (neighbor === BLOCK.GLASS && cur !== BLOCK.GLASS) return true;
       return false;
     }
-    function blockColor(id){
-      switch(id){
-        case BLOCK.STONE:return new THREE.Color(0x9aa0a6);
-        case BLOCK.GRASS:return new THREE.Color(0x55aa55);
-        case BLOCK.DIRT:return new THREE.Color(0x7a4e2a);
-        case BLOCK.GLASS:return new THREE.Color(0x77c4ff);
-      } return new THREE.Color(0,0,0);
-    }
+
     function neighborBlock(c,x,y,z,dir){
       let nx=x,ny=y,nz=z,cx=c.cx,cz=c.cz;
       if(dir===0)nx++; if(dir===1)nx--;
@@ -407,6 +358,8 @@
       return nc.blocks[idx(nx,ny,nz)];
     }
 
+    function enqueueBuild(ch){ if (!buildQueue.includes(ch)) buildQueue.push(ch); }
+
     function buildMesh(c){
       if (!c.dirty) return;
       c.dirty = false;
@@ -417,32 +370,26 @@
         c.mesh = null;
       }
 
-      const pos=[],norm=[],col=[];
+      const pos=[], norm=[], uv=[];
       const baseX=c.cx*CHUNK.X, baseZ=c.cz*CHUNK.Z;
 
-      const pushTri=(a,b,cpt,n,color)=>{
+      const pushTri=(a,b,cpt,n,rect)=>{
         pos.push(a.x,a.y,a.z, b.x,b.y,b.z, cpt.x,cpt.y,cpt.z);
         norm.push(n.x,n.y,n.z, n.x,n.y,n.z, n.x,n.y,n.z);
-        for(let i=0;i<3;i++) col.push(color.r,color.g,color.b);
+        uv.push(rect.u0,rect.v0, rect.u1,rect.v0, rect.u1,rect.v1);
       };
-      const pushQuad=(p0,p1,p2,p3,n,color)=>{ pushTri(p0,p1,p2,n,color); pushTri(p0,p2,p3,n,color); };
+      const pushQuad=(p0,p1,p2,p3,n,rect)=>{ pushTri(p0,p1,p2,n,rect); pushTri(p0,p2,p3,n,rect); };
 
-      // Correct face winding; material is DoubleSide to guarantee visibility
-      const addFace=(x,y,z,dir,color)=>{
+      const addFace=(x,y,z,dir,blockId)=>{
         const bx=baseX+x, by=y, bz=baseZ+z;
+        const rect = uvFor(blockId, dir);
         switch(dir){
-          case 0: // +X
-            pushQuad(new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(1,0,0),color); break;
-          case 1: // -X
-            pushQuad(new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx,by,bz),new THREE.Vector3(-1,0,0),color); break;
-          case 2: // +Y
-            pushQuad(new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(0,1,0),color); break;
-          case 3: // -Y
-            pushQuad(new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(bx,by,bz),new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(0,-1,0),color); break;
-          case 4: // +Z
-            pushQuad(new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(0,0,1),color); break;
-          case 5: // -Z
-            pushQuad(new THREE.Vector3(bx,by,bz),new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(0,0,-1),color); break;
+          case 0: pushQuad(new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(1,0,0),rect); break;
+          case 1: pushQuad(new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx,by,bz),new THREE.Vector3(-1,0,0),rect); break;
+          case 2: pushQuad(new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(0,1,0),rect); break;
+          case 3: pushQuad(new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(bx,by,bz),new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(0,-1,0),rect); break;
+          case 4: pushQuad(new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(0,0,1),rect); break;
+          case 5: pushQuad(new THREE.Vector3(bx,by,bz),new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(0,0,-1),rect); break;
         }
       };
 
@@ -451,10 +398,9 @@
           for(let x=0;x<CHUNK.X;x++){
             const id=c.blocks[idx(x,y,z)];
             if(id===BLOCK.AIR) continue;
-            const color=blockColor(id);
             for(let d=0;d<6;d++){
               const nb=neighborBlock(c,x,y,z,d);
-              if (shouldDrawFace(id, nb)) addFace(x,y,z,d,color);
+              if (shouldDrawFace(id, nb)) addFace(x,y,z,d,id);
             }
           }
         }
@@ -463,19 +409,12 @@
       const geom=new THREE.BufferGeometry();
       geom.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
       geom.setAttribute("normal",new THREE.Float32BufferAttribute(norm,3));
-      geom.setAttribute("color",new THREE.Float32BufferAttribute(col,3));
+      geom.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));
       geom.computeBoundingSphere();
 
-      // DoubleSide so even if any winding goes wrong, you still see blocks
-      const mat=new THREE.MeshLambertMaterial({
-        vertexColors:true,fog:true,side:THREE.DoubleSide
-      });
-
-      c.mesh=new THREE.Mesh(geom,mat);
+      c.mesh=new THREE.Mesh(geom, CHUNK_MAT);
       scene.add(c.mesh);
     }
-
-    function enqueueBuild(ch){ if (!buildQueue.includes(ch)) buildQueue.push(ch); }
 
     /* ===== World management ===== */
     let lastChunkX = Infinity, lastChunkZ = Infinity;
@@ -498,22 +437,22 @@
         }
       }
     }
+    function markNeighborsDirty(cx, cz){
+      const offsets = [[-1,0],[1,0],[0,-1],[0,1]];
+      for (const [dx,dz] of offsets){
+        const nb = chunks.get(key(cx+dx, cz+dz));
+        if (nb && nb.generated){ nb.dirty = true; enqueueBuild(nb); }
+      }
+    }
     function regenAll(){
       for(const [,ch] of chunks){
-        if(ch.mesh){ scene.remove(ch.mesh); ch.mesh.geometry.dispose(); ch.mesh.material.dispose(); }
+        if(ch.mesh){ scene.remove(ch.mesh); ch.mesh.geometry.dispose(); ch.mesh.material && ch.mesh.material.dispose?.(); }
       }
       chunks.clear();
       buildQueue.length = 0;
-
-      // force grid load around current player pos
       scheduleGridRefresh();
       updateVisibleGridIfNeeded(player.pos.x, player.pos.z);
-
-      // mark & queue all loaded chunks immediately
-      for(const [,ch] of chunks){
-        ch.dirty = true;
-        enqueueBuild(ch);
-      }
+      for(const [,ch] of chunks){ ch.dirty = true; enqueueBuild(ch); }
     }
 
     /* ===== Block Editing ===== */
@@ -525,20 +464,16 @@
       return ch.blocks[idx(lx,ly,lz)];
     }
     function setBlock(wx,wy,wz,id){
-      const cx = Math.floor(wx/CHUNK.X), cz = Math.floor(wz/CHUNK.Z);
-      const ch = chunks.get(key(cx,cz)); if(!ch) return;
-    
-      const lx = wx - cx*CHUNK.X, ly = wy, lz = wz - cz*CHUNK.Z;
+      const cx=Math.floor(wx/CHUNK.X), cz=Math.floor(wz/CHUNK.Z);
+      const ch=chunks.get(key(cx,cz)); if(!ch) return;
+      const lx=wx-cx*CHUNK.X, ly=wy, lz=wz-cz*CHUNK.Z;
       if(lx<0||lx>=CHUNK.X||ly<0||ly>=CHUNK.Y||lz<0||lz>=CHUNK.Z) return;
-    
+
       const i = idx(lx,ly,lz);
-      if (ch.blocks[i] === id) return; // no change
-      ch.blocks[i] = id;
-    
-      ch.dirty = true; 
-      enqueueBuild(ch);
-    
-      // also rebuild neighbors if we touched an edge cell
+      if (ch.blocks[i] === id) return;
+      ch.blocks[i]=id;
+      ch.dirty = true; enqueueBuild(ch);
+
       const mark = (nx,nz)=>{
         const nb = chunks.get(key(nx,nz));
         if (nb && nb.generated) { nb.dirty = true; enqueueBuild(nb); }
@@ -548,14 +483,6 @@
       if (lz === 0)           mark(cx, cz-1);
       if (lz === CHUNK.Z-1)   mark(cx, cz+1);
     }
-    function markNeighborsDirty(cx, cz){
-      const offsets = [[-1,0],[1,0],[0,-1],[0,1]];
-      for (const [dx,dz] of offsets){
-        const nb = chunks.get(key(cx+dx, cz+dz));
-        if (nb && nb.generated){ nb.dirty = true; enqueueBuild(nb); }
-      }
-    }
-
 
     /* ===== Player & Picking & Physics ===== */
     const player = {
@@ -640,9 +567,15 @@
       });
     }
 
+    function scheduleFriction(dtFactor){
+      const f = player.grounded ? FRICTION_GROUND : FRICTION_AIR;
+      const k = Math.pow(f, dtFactor);
+      player.vel.x *= k; player.vel.z *= k;
+    }
+
     /* ===== Startup & Loop ===== */
-    // Ensure terrain shows on first load
     regenAll();
+
     let last = performance.now();
     function animate(now){
       const dt=(now-last)/1000; last=now;
@@ -651,7 +584,7 @@
       // look
       camera.rotation.set(pitch,yaw,0,"YXZ");
 
-      // move (Shift = sprint; no Ctrl conflicts)
+      // move
       const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)).multiplyScalar(-1).normalize();
       const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
       let speed = keys.has("shift") ? SPRINT : WALK;
@@ -661,18 +594,14 @@
       if(keys.has("d")) player.vel.addScaledVector(right,    speed);
       if(keys.has(" ") && player.grounded) player.vel.y = JUMP_VEL;
 
-      // gravity + physics
+      // physics
       player.vel.y += GRAVITY * dtFactor;
       moveAndCollide(dtFactor);
-      const f = player.grounded ? FRICTION_GROUND : FRICTION_AIR;
-      // make it framerate-independent: raise to dtFactor (≈1 at 60fps)
-      player.vel.x *= Math.pow(f, dtFactor);
-      player.vel.z *= Math.pow(f, dtFactor);
-
+      scheduleFriction(dtFactor);
 
       camera.position.copy(player.pos).add(new THREE.Vector3(0, player.size.y*0.4, 0));
 
-      // ensure grid & build limited chunks per frame
+      // chunk loading & meshing
       updateVisibleGridIfNeeded(player.pos.x, player.pos.z);
       for(let i=0;i<BUILDS_PER_FRAME && buildQueue.length;i++){
         buildMesh(buildQueue.shift());
