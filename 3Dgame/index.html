@@ -21,7 +21,7 @@
 <body>
   <div id="hud">
     <div><b>Voxel Prototype</b> — click to lock mouse</div>
-    <div>WASD move • Space up • Ctrl down • Left: break • Right: place • 1–4 block • R: regen</div>
+    <div>WASD move • Space up • Shift down • Left: break • Right: place • 1–4 block • R: regen</div>
     <div id="info"></div>
   </div>
   <div id="cross"></div>
@@ -31,7 +31,7 @@
 
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:64, Z:16 };
-    const GRID_RADIUS = 1;                 // 3x3 chunks around you
+    const GRID_RADIUS = 1;
     const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4 };
     let CURRENT_BLOCK = BLOCK.STONE;
 
@@ -73,13 +73,22 @@
     document.addEventListener("pointerlockchange", () => {
       pointerLocked = (document.pointerLockElement === renderer.domElement);
     });
+
+    // Mouse look with clamping
     document.addEventListener("mousemove", (e) => {
       if (!pointerLocked) return;
       const sens = 0.0025;
-      yaw   -= e.movementX * sens;
-      pitch -= e.movementY * sens;
+      const MAX_D = 80;
+      const dx = Math.max(-MAX_D, Math.min(MAX_D, e.movementX || 0));
+      const dy = Math.max(-MAX_D, Math.min(MAX_D, e.movementY || 0));
+      yaw   -= dx * sens;
+      pitch -= dy * sens;
+      const TWO_PI = Math.PI * 2;
+      if (yaw >  Math.PI) yaw -= TWO_PI;
+      if (yaw < -Math.PI) yaw += TWO_PI;
       pitch = Math.max(-Math.PI/2+0.001, Math.min(Math.PI/2-0.001, pitch));
     });
+
     addEventListener("keydown", (e) => {
       const k = e.key.toLowerCase();
       keys.add(k);
@@ -126,7 +135,7 @@
         this.blocks=new Uint8Array(CHUNK.X*CHUNK.Y*CHUNK.Z);
         this.mesh=null;
         this.generated=false;
-        this.dirty=false; // rebuild mesh only when dirty
+        this.dirty=false;
       }
     }
     const chunks=new Map();
@@ -152,13 +161,9 @@
         }
       }
       c.generated=true;
-      c.dirty=true; // needs initial mesh
+      c.dirty=true;
     }
 
-    // Face visibility rule:
-    // - Draw if neighbor is AIR
-    // - Draw if neighbor is GLASS and current is NOT GLASS (see-through neighbor)
-    // - Skip faces between two GLASS blocks
     function shouldDrawFace(cur, neighbor){
       if (neighbor === BLOCK.AIR) return true;
       if (neighbor === BLOCK.GLASS && cur !== BLOCK.GLASS) return true;
@@ -180,7 +185,7 @@
       if(dir===0)nx++; if(dir===1)nx--;
       if(dir===2)ny++; if(dir===3)ny--;
       if(dir===4)nz++; if(dir===5)nz--;
-      if(ny<0||ny>=CHUNK.Y) return BLOCK.AIR; // outside vertical = air
+      if(ny<0||ny>=CHUNK.Y) return BLOCK.AIR;
       if(nx<0){cx--;nx+=CHUNK.X;}
       if(nx>=CHUNK.X){cx++;nx-=CHUNK.X;}
       if(nz<0){cz--;nz+=CHUNK.Z;}
@@ -193,14 +198,12 @@
     function buildMesh(c){
       if (!c.dirty) return;
       c.dirty = false;
-
       if(c.mesh){
         scene.remove(c.mesh);
         c.mesh.geometry.dispose();
         c.mesh.material.dispose();
         c.mesh = null;
       }
-
       const pos=[],norm=[],col=[];
       const baseX=c.cx*CHUNK.X, baseZ=c.cz*CHUNK.Z;
 
@@ -211,58 +214,45 @@
       };
       const pushQuad=(p0,p1,p2,p3,n,color)=>{ pushTri(p0,p1,p2,n,color); pushTri(p0,p2,p3,n,color); };
 
-      // CORRECTED WINDING: vertices are counter-clockwise when looking at the outward normal
       const addFace=(x,y,z,dir,color)=>{
         const bx=baseX+x, by=y, bz=baseZ+z;
         switch(dir){
-          // +X
           case 0: pushQuad(
             new THREE.Vector3(bx+1,by,  bz  ),
             new THREE.Vector3(bx+1,by+1,bz  ),
             new THREE.Vector3(bx+1,by+1,bz+1),
             new THREE.Vector3(bx+1,by,  bz+1),
             new THREE.Vector3(1,0,0), color); break;
-
-          // -X
           case 1: pushQuad(
             new THREE.Vector3(bx,by,  bz+1),
             new THREE.Vector3(bx,by+1,bz+1),
             new THREE.Vector3(bx,by+1,bz  ),
             new THREE.Vector3(bx,by,  bz  ),
             new THREE.Vector3(-1,0,0), color); break;
-
-          // +Y (top)
           case 2: pushQuad(
             new THREE.Vector3(bx,  by+1,bz  ),
             new THREE.Vector3(bx,  by+1,bz+1),
             new THREE.Vector3(bx+1,by+1,bz+1),
             new THREE.Vector3(bx+1,by+1,bz  ),
             new THREE.Vector3(0,1,0), color); break;
-
-          // -Y (bottom)
           case 3: pushQuad(
             new THREE.Vector3(bx,  by,  bz+1),
             new THREE.Vector3(bx,  by,  bz  ),
             new THREE.Vector3(bx+1,by,  bz  ),
             new THREE.Vector3(bx+1,by,  bz+1),
             new THREE.Vector3(0,-1,0), color); break;
-            
-          // +Z (front, normal 0,0,1) — CCW when viewed from +Z
           case 4: pushQuad(
             new THREE.Vector3(bx+1,by,  bz+1),
             new THREE.Vector3(bx+1,by+1,bz+1),
             new THREE.Vector3(bx,  by+1,bz+1),
             new THREE.Vector3(bx,  by,  bz+1),
             new THREE.Vector3(0,0,1), color); break;
-                  
-          // -Z (back, normal 0,0,-1) — CCW when viewed from -Z
           case 5: pushQuad(
             new THREE.Vector3(bx,  by,  bz  ),
             new THREE.Vector3(bx,  by+1,bz  ),
             new THREE.Vector3(bx+1,by+1,bz  ),
             new THREE.Vector3(bx+1,by,  bz  ),
             new THREE.Vector3(0,0,-1), color); break;
-
         }
       };
 
@@ -287,22 +277,17 @@
       geom.computeBoundingSphere();
 
       const mat=new THREE.MeshLambertMaterial({
-        vertexColors:true,
-        fog:true,
-        transparent:true,
-        opacity:1.0,
-        depthWrite:true,
-        side: THREE.FrontSide
+        vertexColors:true,fog:true,
+        transparent:true,opacity:1.0,
+        depthWrite:true,side:THREE.FrontSide
       });
 
       c.mesh=new THREE.Mesh(geom,mat);
-      c.mesh.frustumCulled = true;
       scene.add(c.mesh);
     }
 
     /* ===== World Management ===== */
     let lastChunkX = Infinity, lastChunkZ = Infinity;
-
     function ensureChunk(cx,cz){
       const k = key(cx,cz);
       let ch = chunks.get(k);
@@ -310,21 +295,16 @@
       if(!ch.generated) generateChunk(ch);
       return ch;
     }
-
     function updateVisibleGridIfNeeded(wx,wz){
       const pcx=Math.floor(wx/CHUNK.X), pcz=Math.floor(wz/CHUNK.Z);
-      if (pcx === lastChunkX && pcz === lastChunkZ) return; // no change -> no work
+      if (pcx === lastChunkX && pcz === lastChunkZ) return;
       lastChunkX = pcx; lastChunkZ = pcz;
-
       for(let dz=-GRID_RADIUS;dz<=GRID_RADIUS;dz++){
         for(let dx=-GRID_RADIUS;dx<=GRID_RADIUS;dx++){
-          const cx=pcx+dx, cz=pcz+dz;
-          const ch = ensureChunk(cx,cz);
-          buildMesh(ch); // newly generated chunks are marked dirty; build now
+          buildMesh(ensureChunk(pcx+dx, pcz+dz));
         }
       }
     }
-
     function regenAll(){
       for(const [,ch] of chunks){
         if(ch.mesh){ scene.remove(ch.mesh); ch.mesh.geometry.dispose(); ch.mesh.material.dispose(); }
@@ -349,11 +329,6 @@
       if(lx<0||lx>=CHUNK.X||ly<0||ly>=CHUNK.Y||lz<0||lz>=CHUNK.Z) return;
       ch.blocks[idx(lx,ly,lz)]=id;
       ch.dirty = true;
-      // mark neighbors if we touched edges so shared faces update
-      if (lx===0)            { const n=chunks.get(key(cx-1,cz)); if(n) n.dirty=true; }
-      if (lx===CHUNK.X-1)    { const n=chunks.get(key(cx+1,cz)); if(n) n.dirty=true; }
-      if (lz===0)            { const n=chunks.get(key(cx,cz-1)); if(n) n.dirty=true; }
-      if (lz===CHUNK.Z-1)    { const n=chunks.get(key(cx,cz+1)); if(n) n.dirty=true; }
     }
     function pick(maxDist=8){
       const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch,yaw,0,"YXZ"));
@@ -382,21 +357,19 @@
       camera.rotation.set(pitch,yaw,0,"YXZ");
 
       const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)).multiplyScalar(-1);
-      const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).multiplyScalar(-1);
+      const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0));
       const up=new THREE.Vector3(0,1,0);
 
-      let vel=0.14; if(keys.has("shift")) vel*=2.2;
+      let vel=0.14;
+      if(keys.has("control")) vel*=2.2; // ctrl = speed boost
       if(keys.has("w")) camera.position.addScaledVector(forward,vel);
       if(keys.has("s")) camera.position.addScaledVector(forward,-vel);
-      if(keys.has("a")) camera.position.addScaledVector(right,-vel);
-      if(keys.has("d")) camera.position.addScaledVector(right,vel);
+      if(keys.has("a")) camera.position.addScaledVector(right,-vel); // flipped
+      if(keys.has("d")) camera.position.addScaledVector(right,vel);  // flipped
       if(keys.has(" ")) camera.position.addScaledVector(up,vel);
-      if(keys.has("control")) camera.position.addScaledVector(up,-vel);
+      if(keys.has("shift")) camera.position.addScaledVector(up,-vel); // shift = down
 
-      // Only when entering a new chunk ensure the 3x3 and build dirty meshes
       updateVisibleGridIfNeeded(camera.position.x,camera.position.z);
-
-      // Rebuild any chunks dirtied by edits
       for (const [,ch] of chunks) buildMesh(ch);
 
       info.textContent=`Pos ${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)} | Block ${Object.keys(BLOCK).find(k=>BLOCK[k]===CURRENT_BLOCK)}`;
