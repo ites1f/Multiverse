@@ -20,7 +20,9 @@ html, body {
 }
 
 #hud input[type=range] {
-  width: 120px;
+  width: 140px;
+  vertical-align: middle;
+  margin: 4px 6px;
 }
 
 #cross {
