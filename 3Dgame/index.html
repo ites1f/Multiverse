@@ -99,43 +99,44 @@
 
   <script type="module">
     import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-
     /* ===== Tunables (sliders override) ===== */
     let GRAVITY  = -0.027;
     let JUMP_VEL =  0.14;
     let WALK     =  0.072;
     let SPRINT   =  0.093;
+    
     // --- Biome & shape tuning ---
-    let BIOME_SCALE     = 0.0016;  // lower = larger biomes
-    let WARP_SCALE      = 0.015;   // domain warping frequency
-    let WARP_STRENGTH   = 12.0;    // how much to warp coordinates
-
+    let BIOME_SCALE     = 0.0012;  // larger biomes (continent sized)
+    let WARP_SCALE      = 0.012;   // mild domain warp
+    let WARP_STRENGTH   = 18.0;    // stronger warp for curvy borders
+    
     // Plains
-    let PLAINS_BASE     = 28;      // base height
-    let PLAINS_WOBBLE   = 2.5;     // tiny variation
-
+    let PLAINS_BASE     = 64;      // vanilla plains ~Y=64
+    let PLAINS_WOBBLE   = 3.0;     // small noise to avoid dead flatness
+    
     // Hills
-    let HILLS_SCALE     = 0.02;    // hill frequency
-    let HILLS_AMP       = 10;      // hill amplitude
-
+    let HILLS_SCALE     = 0.015;   // gentle mid-sized bumps
+    let HILLS_AMP       = 20;      // more pronounced rolling hills
+    
     // Mountains (ridged)
-    let MOUNT_SCALE     = 0.012;   // mountain frequency (larger features)
-    let MOUNT_RIDGES    = 100;      // mountain height
-
+    let MOUNT_SCALE     = 0.008;   // broader mountain features
+    let MOUNT_RIDGES    = 140;     // tall peaks (raise/lower this for height)
+    
     // “Hilly patches” sprinkled in plains
-    let SPOT_SCALE      = 0.01;    // frequency of spots
-    let SPOT_THRESHOLD  = 0.72;    // higher => fewer spots
-    let SPOT_AMPLITUDE  = 7;       // bump height when a spot hits
-
-
-    let GRID_RADIUS = 2;        // render distance
-    let BUILDS_PER_FRAME = 8;   // throttle meshing
-
-    // Multiplicative noise params (flats + mountains)
+    let SPOT_SCALE      = 0.012;   // how often bumps appear
+    let SPOT_THRESHOLD  = 0.70;    // lower = more patches
+    let SPOT_AMPLITUDE  = 12;      // how tall the bumps are
+    
+    // World management
+    let GRID_RADIUS = 2;           // render distance (2 = 5×5 chunks = 80×80 blocks)
+    let BUILDS_PER_FRAME = 12;     // more chunk builds per frame = faster load, more lag
+    
+    // Multiplicative noise params (backup shaping)
     let MASK_SCALE   = 0.003;
     let HILL_SCALE   = 0.02;
     let DETAIL_SCALE = 0.08;
-    let MOUNT_AMP    = 28;
+    let MOUNT_AMP    = 40;         // bump this for sharper ridges
+    
 
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:256, Z:16 };
