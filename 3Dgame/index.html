@@ -54,7 +54,7 @@
     <div><b>Voxel Prototype</b> — click to lock mouse</div>
     <div>WASD move • Space jump • Shift sprint • Left: break • Right: place • 1–4 block • R: regen</div>
     <div id="info"></div>
-
+<!--
     <hr>
     <b>Movement</b><br>
     Gravity <input id="gSlider" type="range" min="-0.1" max="0" step="0.001" value="-0.027"> <span id="gVal"></span><br>
@@ -92,46 +92,50 @@
     SpotScale <input id="spotScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="spotScaleVal"></span><br>
     SpotThreshold <input id="spotThresholdSlider" type="range" min="0" max="1" step="0.01" value="0.70"> <span id="spotThresholdVal"></span><br>
     SpotAmp <input id="spotAmpSlider" type="range" min="0" max="30" step="1" value="12"> <span id="spotAmpVal"></span><br>
-
+  -->
 </div>
 
   <div id="cross"></div>
 
   <script type="module">
     import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-    // Movement
-    GRAVITY      = -0.003;
-    JUMP_VEL     =  0.39;
-    WALK         =  0.072;
-    SPRINT       =  0.093;
+    /* ===== Tunables (sliders override) ===== */
+    let GRAVITY  = -0.003;
+    let JUMP_VEL =  0.39;
+    let WALK     =  0.072;
+    let SPRINT   =  0.093;
 
-    // Render
-    GRID_RADIUS      = 4;   // RenderDist
-    BUILDS_PER_FRAME = 6;
+    // --- Biome & shape tuning ---
+    let BIOME_SCALE     = 0.0100;  // biome size
+    let WARP_SCALE      = 0.012;   // domain warp frequency
+    let WARP_STRENGTH   = 18.0;    // warp strength
 
-    // Noise (Multiplicative)
-    MASK_SCALE   = 0.001;
-    HILL_SCALE   = 0.020;
-    DETAIL_SCALE = 0.080;
-    MOUNT_AMP    = 5;
+    // Plains
+    let PLAINS_BASE     = 33;      // base Y level
+    let PLAINS_WOBBLE   = 3.0;     // small noise variation
 
-    // Biome / Shape
-    BIOME_SCALE     = 0.0100;
-    WARP_SCALE      = 0.012;
-    WARP_STRENGTH   = 18;
+    // Hills
+    let HILLS_SCALE     = 0.015;   // hill frequency
+    let HILLS_AMP       = 20;      // hill height
 
-    PLAINS_BASE     = 33;
-    PLAINS_WOBBLE   = 3.0;
+    // Mountains (ridged)
+    let MOUNT_SCALE     = 0.005;   // mountain frequency
+    let MOUNT_RIDGES    = 220;     // mountain peak height
 
-    HILLS_SCALE     = 0.015;
-    HILLS_AMP       = 20;
+    // “Hilly patches” sprinkled in plains
+    let SPOT_SCALE      = 0.012;   // patch frequency
+    let SPOT_THRESHOLD  = 0.55;    // higher = fewer spots
+    let SPOT_AMPLITUDE  = 30;      // bump height when a spot hits
 
-    MOUNT_SCALE     = 0.005;
-    MOUNT_RIDGES    = 220;
+    // World management
+    let GRID_RADIUS = 6;           // render distance (6 = 13×13 chunks)
+    let BUILDS_PER_FRAME = 6;      // chunk mesh build throttle
 
-    SPOT_SCALE      = 0.012;
-    SPOT_THRESHOLD  = 0.55;
-    SPOT_AMPLITUDE  = 30;
+    // Multiplicative noise params (backup shaping)
+    let MASK_SCALE   = 0.001;
+    let HILL_SCALE   = 0.020;
+    let DETAIL_SCALE = 0.080;
+    let MOUNT_AMP    = 5;          // sharpness of ridges
 
     
 
