@@ -73,7 +73,27 @@
     HillScale <input id="hillSlider" type="range" min="0.01" max="0.08" step="0.001" value="0.02"> <span id="hillVal"></span><br>
     DetailScale <input id="detailSlider" type="range" min="0.05" max="0.3" step="0.005" value="0.08"> <span id="detailVal"></span><br>
     MountainAmp <input id="mountSlider" type="range" min="5" max="80" step="1" value="28"> <span id="mountVal"></span><br>
-  </div>
+    
+    <hr>
+    <b>Biome / Shape</b><br>
+    BiomeScale <input id="biomeSlider" type="range" min="0.0005" max="0.01" step="0.0001" value="0.0016"> <span id="biomeVal"></span><br>
+    WarpScale <input id="warpScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.015"> <span id="warpScaleVal"></span><br>
+    WarpStrength <input id="warpStrengthSlider" type="range" min="0" max="50" step="1" value="12"> <span id="warpStrengthVal"></span><br>
+
+    PlainsBase <input id="plainsBaseSlider" type="range" min="20" max="60" step="1" value="28"> <span id="plainsBaseVal"></span><br>
+    PlainsWobble <input id="plainsWobbleSlider" type="range" min="0" max="10" step="0.1" value="2.5"> <span id="plainsWobbleVal"></span><br>
+
+    HillsScale <input id="hillsScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.02"> <span id="hillsScaleVal"></span><br>
+    HillsAmp <input id="hillsAmpSlider" type="range" min="0" max="30" step="1" value="10"> <span id="hillsAmpVal"></span><br>
+
+    MountScale <input id="mountScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="mountScaleVal"></span><br>
+    MountRidges <input id="mountRidgesSlider" type="range" min="10" max="80" step="1" value="35"> <span id="mountRidgesVal"></span><br>
+
+    SpotScale <input id="spotScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.01"> <span id="spotScaleVal"></span><br>
+    SpotThreshold <input id="spotThresholdSlider" type="range" min="0" max="1" step="0.01" value="0.72"> <span id="spotThresholdVal"></span><br>
+    SpotAmp <input id="spotAmpSlider" type="range" min="0" max="30" step="1" value="7"> <span id="spotAmpVal"></span><br>
+
+</div>
 
   <div id="cross"></div>
 
@@ -195,6 +215,23 @@
     bind("hillSlider",v => { HILL_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
     bind("detailSlider",v=> { DETAIL_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
     bind("mountSlider", v=> { MOUNT_AMP=v; regenAll(); }, v=>v|0);
+    bind("biomeSlider",     v => { BIOME_SCALE = v; regenAll(); }, v=> (+v).toFixed(4));
+    bind("warpScaleSlider", v => { WARP_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
+    bind("warpStrengthSlider", v => { WARP_STRENGTH = v; regenAll(); }, v=> v|0);
+    
+    bind("plainsBaseSlider",   v => { PLAINS_BASE = v; regenAll(); }, v=> v|0);
+    bind("plainsWobbleSlider", v => { PLAINS_WOBBLE = v; regenAll(); }, v=> (+v).toFixed(1));
+    
+    bind("hillsScaleSlider", v => { HILLS_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
+    bind("hillsAmpSlider",   v => { HILLS_AMP = v; regenAll(); }, v=> v|0);
+    
+    bind("mountScaleSlider",  v => { MOUNT_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
+    bind("mountRidgesSlider", v => { MOUNT_RIDGES = v; regenAll(); }, v=> v|0);
+    
+    bind("spotScaleSlider",     v => { SPOT_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
+    bind("spotThresholdSlider", v => { SPOT_THRESHOLD = v; regenAll(); }, v=> (+v).toFixed(2));
+    bind("spotAmpSlider",       v => { SPOT_AMPLITUDE = v; regenAll(); }, v=> v|0);
+
     // Ridged noise from fbm: sharp peaks for mountains
     function ridged(x, y, octaves=4){
       let amp=1, freq=1, sum=0, norm=0;
@@ -248,30 +285,30 @@ function sstep(a,b,t){ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(
       // 1) Domain warp for more organic shapes
       const w = warp2(wx, wz);
       const x = w.x, y = w.y;
-    
+
       // 2) Biome map (very low freq). We’ll split into 3 bands.
       const biomeN = fbm2(x*BIOME_SCALE, y*BIOME_SCALE); // 0..1
       // bands (tune these to shift coverage)
       const tPlains    = sstep(0.00, 0.40, biomeN);  // more weight when biomeN is low
       const tHills     = sstep(0.35, 0.70, biomeN);  // mid band
       const tMountains = sstep(0.65, 1.00, biomeN);  // high band
-    
+
       // Normalize weights so they sum to 1 (soft overlap)
       const wSum = tPlains + tHills + tMountains + 1e-6;
       const bP = tPlains / wSum, bH = tHills / wSum, bM = tMountains / wSum;
-    
+
       // 3) Plains generator: almost flat, tiny wobble
       const plains = PLAINS_BASE
                    + (fbm2(x*0.03, y*0.03) - 0.5) * 2 * PLAINS_WOBBLE;
-    
+
       // 4) Hills generator: regular fbm bumps
       const hills = PLAINS_BASE + 3
                   + (fbm2(x*HILLS_SCALE, y*HILLS_SCALE)) * HILLS_AMP;
-    
+
       // 5) Mountain generator: ridged for sharp peaks
       const mountains = PLAINS_BASE + 6
                       + ridged(x*MOUNT_SCALE, y*MOUNT_SCALE) * MOUNT_RIDGES;
-    
+
       // 6) Sprinkle “hilly spots” inside otherwise flat zones
       //    Raise height locally when a spot noise exceeds a threshold.
       let spotBump = 0;
@@ -281,17 +318,17 @@ function sstep(a,b,t){ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(
         const k = (spot - SPOT_THRESHOLD) / (1 - SPOT_THRESHOLD); // 0..1
         spotBump = k * SPOT_AMPLITUDE;
       }
-  
+
       // 7) Blend by biome
       let h = bP * plains + bH * hills + bM * mountains;
-  
+
       // Let spots mostly affect plains & mild hills (not towering mountains)
       const spotWeight = bP * 1.0 + bH * 0.6; // bias towards plains
       h += spotBump * spotWeight;
-  
+
       return Math.floor(h);
     }
-    
+
     // For quick sanity: set to a number to force flat world (e.g., 20). Set to null to use noise.
     const FLAT_WORLD_Y = null;
 
@@ -570,7 +607,7 @@ function sstep(a,b,t){ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(
     }
 
     /* ===== Startup & Loop ===== */
-    // 🔥 Ensure terrain shows on first load
+    // Ensure terrain shows on first load
     regenAll();
 
     let last = performance.now();
