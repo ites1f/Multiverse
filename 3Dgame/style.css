@@ -1,0 +1,47 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #0b1220;
+  overflow: hidden;
+}
+
+#hud {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  font: 14px ui-monospace, Consolas, monospace;
+  color: #e9eefc;
+  background: rgba(0,0,0,.35);
+  padding: 8px 10px;
+  border-radius: 10px;
+  user-select: none;
+  max-height: 95vh;
+  overflow-y: auto;
+}
+
+#hud input[type=range] {
+  width: 120px;
+}
+
+#cross {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  pointer-events: none;
+}
+#cross:before, #cross:after {
+  content: "";
+  position: absolute;
+  background: #e9eefc;
+}
+#cross:before {
+  left: 8px; top: 0;
+  width: 2px; height: 18px;
+}
+#cross:after {
+  top: 8px; left: 0;
+  height: 2px; width: 18px;
+}
