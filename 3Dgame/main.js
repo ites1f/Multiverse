@@ -196,7 +196,7 @@ function neighborBlock(c,x,y,z,dir){
   if(!nc||!nc.generated) return BLOCK.AIR;
   return nc.blocks[idx(nx,ny,nz)];
 }
-
+/*
 function buildMesh(c){
   if (!c.dirty) return;
   c.dirty = false;
@@ -260,6 +260,16 @@ function buildMesh(c){
   c.mesh=new THREE.Mesh(geom,mat);
   scene.add(c.mesh);
 }
+*/
+function buildMesh(c){
+  const geom = new THREE.BoxGeometry(10,10,10);
+  const mat  = new THREE.MeshBasicMaterial({color:0xff0000});
+  const cube = new THREE.Mesh(geom,mat);
+  cube.position.set(c.cx*CHUNK.X, 20, c.cz*CHUNK.Z);
+  scene.add(cube);
+  c.mesh = cube;
+}
+
 
 function enqueueBuild(ch){ if (!buildQueue.includes(ch)) buildQueue.push(ch); }
 
