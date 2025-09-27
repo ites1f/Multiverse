@@ -120,7 +120,7 @@
 
     // Mountains (ridged)
     let MOUNT_SCALE     = 0.012;   // mountain frequency (larger features)
-    let MOUNT_RIDGES    = 35;      // mountain height
+    let MOUNT_RIDGES    = 100;      // mountain height
 
     // “Hilly patches” sprinkled in plains
     let SPOT_SCALE      = 0.01;    // frequency of spots
@@ -138,7 +138,7 @@
     let MOUNT_AMP    = 28;
 
     /* ===== Config ===== */
-    const CHUNK = { X:16, Y:64, Z:16 };
+    const CHUNK = { X:16, Y:256, Z:16 };
     const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4 };
     let CURRENT_BLOCK = BLOCK.STONE;
 
@@ -218,16 +218,16 @@
     bind("biomeSlider",     v => { BIOME_SCALE = v; regenAll(); }, v=> (+v).toFixed(4));
     bind("warpScaleSlider", v => { WARP_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
     bind("warpStrengthSlider", v => { WARP_STRENGTH = v; regenAll(); }, v=> v|0);
-    
+
     bind("plainsBaseSlider",   v => { PLAINS_BASE = v; regenAll(); }, v=> v|0);
     bind("plainsWobbleSlider", v => { PLAINS_WOBBLE = v; regenAll(); }, v=> (+v).toFixed(1));
-    
+
     bind("hillsScaleSlider", v => { HILLS_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
     bind("hillsAmpSlider",   v => { HILLS_AMP = v; regenAll(); }, v=> v|0);
-    
+
     bind("mountScaleSlider",  v => { MOUNT_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
     bind("mountRidgesSlider", v => { MOUNT_RIDGES = v; regenAll(); }, v=> v|0);
-    
+
     bind("spotScaleSlider",     v => { SPOT_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
     bind("spotThresholdSlider", v => { SPOT_THRESHOLD = v; regenAll(); }, v=> (+v).toFixed(2));
     bind("spotAmpSlider",       v => { SPOT_AMPLITUDE = v; regenAll(); }, v=> v|0);
