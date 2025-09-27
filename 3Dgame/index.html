@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Web Voxel Prototype</title>
-
   <style>
     html, body { margin:0; height:100%; background:#0b1220; overflow:hidden; }
     #hud {
@@ -21,7 +20,7 @@
 <body>
   <div id="hud">
     <div><b>Voxel Prototype</b> — click to lock mouse</div>
-    <div>WASD move • Space up • Shift down • Left: break • Right: place • 1–4 block • R: regen</div>
+    <div>WASD move • Space jump • Shift sprint • Left: break • Right: place • 1–4 block • R: regen</div>
     <div id="info"></div>
   </div>
   <div id="cross"></div>
@@ -41,7 +40,6 @@
     scene.fog = new THREE.Fog(0x0b1220, 80, 220);
 
     const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
-    camera.position.set(8, 32, 8);
 
     const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" });
     renderer.setSize(innerWidth, innerHeight);
@@ -66,21 +64,17 @@
       camera.updateProjectionMatrix();
       renderer.setSize(innerWidth, innerHeight);
     });
-
     document.body.addEventListener("click", () => {
       if (!pointerLocked) renderer.domElement.requestPointerLock();
     });
     document.addEventListener("pointerlockchange", () => {
       pointerLocked = (document.pointerLockElement === renderer.domElement);
     });
-
-    // Mouse look with clamping
     document.addEventListener("mousemove", (e) => {
       if (!pointerLocked) return;
-      const sens = 0.0025;
-      const MAX_D = 80;
-      const dx = Math.max(-MAX_D, Math.min(MAX_D, e.movementX || 0));
-      const dy = Math.max(-MAX_D, Math.min(MAX_D, e.movementY || 0));
+      const sens = 0.0025, MAX_D = 80;
+      const dx = Math.max(-MAX_D, Math.min(MAX_D, e.movementX||0));
+      const dy = Math.max(-MAX_D, Math.min(MAX_D, e.movementY||0));
       yaw   -= dx * sens;
       pitch -= dy * sens;
       const TWO_PI = Math.PI * 2;
@@ -88,7 +82,6 @@
       if (yaw < -Math.PI) yaw += TWO_PI;
       pitch = Math.max(-Math.PI/2+0.001, Math.min(Math.PI/2-0.001, pitch));
     });
-
     addEventListener("keydown", (e) => {
       const k = e.key.toLowerCase();
       keys.add(k);
@@ -179,7 +172,6 @@
       } return new THREE.Color(0,0,0);
     }
 
-    /* ===== Meshing ===== */
     function neighborBlock(c,x,y,z,dir){
       let nx=x,ny=y,nz=z,cx=c.cx,cz=c.cz;
       if(dir===0)nx++; if(dir===1)nx--;
@@ -286,7 +278,6 @@
       scene.add(c.mesh);
     }
 
-    /* ===== World Management ===== */
     let lastChunkX = Infinity, lastChunkZ = Infinity;
     function ensureChunk(cx,cz){
       const k = key(cx,cz);
@@ -314,7 +305,6 @@
       updateVisibleGridIfNeeded(camera.position.x,camera.position.z);
     }
 
-    /* ===== Block Editing ===== */
     function getBlock(wx,wy,wz){
       const cx=Math.floor(wx/CHUNK.X), cz=Math.floor(wz/CHUNK.Z);
       const ch=chunks.get(key(cx,cz)); if(!ch) return BLOCK.AIR;
@@ -330,26 +320,64 @@
       ch.blocks[idx(lx,ly,lz)]=id;
       ch.dirty = true;
     }
-    function pick(maxDist=8){
-      const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch,yaw,0,"YXZ"));
-      const pos=camera.position.clone(); const step=0.1;
-      let lastAir=pos.clone();
-      for(let i=0;i<maxDist/step;i++){
-        const b=getBlock(Math.floor(pos.x),Math.floor(pos.y),Math.floor(pos.z));
-        if(b!==BLOCK.AIR) return {hit:true,pos:pos.clone().floor(),place:lastAir.clone().floor()};
-        lastAir.copy(pos); pos.addScaledVector(dir,step);
+
+    /* ===== Physics ===== */
+    const player = {
+      pos: new THREE.Vector3(8, 50, 8),
+      vel: new THREE.Vector3(),
+      size: new THREE.Vector3(0.6, 1.8, 0.6),
+      grounded: false
+    };
+    const GRAVITY = -0.04;
+    const JUMP_VEL = 0.25;
+
+    function isSolid(id){ return id!==BLOCK.AIR; }
+
+    function aabbCollide(pos, size){
+      const min = pos.clone().sub(size.clone().multiplyScalar(0.5));
+      const max = pos.clone().add(size.clone().multiplyScalar(0.5));
+      const minX=Math.floor(min.x), maxX=Math.floor(max.x);
+      const minY=Math.floor(min.y), maxY=Math.floor(max.y);
+      const minZ=Math.floor(min.z), maxZ=Math.floor(max.z);
+      const boxes=[];
+      for(let x=minX;x<=maxX;x++){
+        for(let y=minY;y<=maxY;y++){
+          for(let z=minZ;z<=maxZ;z++){
+            if(isSolid(getBlock(x,y,z))){
+              boxes.push({min:new THREE.Vector3(x,y,z), max:new THREE.Vector3(x+1,y+1,z+1)});
+            }
+          }
+        }
       }
-      return {hit:false};
+      return boxes;
     }
-    addEventListener("mousedown",(e)=>{
-      if(!pointerLocked) return;
-      const p=pick(10); if(!p.hit) return;
-      if(e.button===0) setBlock(p.pos.x,p.pos.y,p.pos.z,BLOCK.AIR);
-      if(e.button===2) setBlock(p.place.x,p.place.y,p.place.z,CURRENT_BLOCK);
-    });
+
+    function resolveCollisions(){
+      player.grounded=false;
+      const boxes=aabbCollide(player.pos, player.size);
+      for(const b of boxes){
+        const overlapX=Math.min(player.pos.x+player.size.x/2,b.max.x)-Math.max(player.pos.x-player.size.x/2,b.min.x);
+        const overlapY=Math.min(player.pos.y+player.size.y/2,b.max.y)-Math.max(player.pos.y-player.size.y/2,b.min.y);
+        const overlapZ=Math.min(player.pos.z+player.size.z/2,b.max.z)-Math.max(player.pos.z-player.size.z/2,b.min.z);
+        if(overlapX>0 && overlapY>0 && overlapZ>0){
+          const minOverlap=Math.min(overlapX, overlapY, overlapZ);
+          if(minOverlap===overlapX){
+            player.pos.x += (player.pos.x<b.min.x)? -overlapX: overlapX;
+            player.vel.x=0;
+          }else if(minOverlap===overlapY){
+            player.pos.y += (player.pos.y<b.min.y)? -overlapY: overlapY;
+            if(player.vel.y<0) player.grounded=true;
+            player.vel.y=0;
+          }else{
+            player.pos.z += (player.pos.z<b.min.z)? -overlapZ: overlapZ;
+            player.vel.z=0;
+          }
+        }
+      }
+    }
 
     /* ===== Loop ===== */
-    updateVisibleGridIfNeeded(camera.position.x,camera.position.z);
+    updateVisibleGridIfNeeded(player.pos.x,player.pos.z);
 
     let last=performance.now();
     function animate(now){
@@ -358,21 +386,27 @@
 
       const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)).multiplyScalar(-1);
       const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0));
-      const up=new THREE.Vector3(0,1,0);
+      forward.normalize(); right.normalize();
 
-      let vel=0.14;
-      if(keys.has("control")) vel*=2.2; // ctrl = speed boost
-      if(keys.has("w")) camera.position.addScaledVector(forward,vel);
-      if(keys.has("s")) camera.position.addScaledVector(forward,-vel);
-      if(keys.has("a")) camera.position.addScaledVector(right,-vel); // flipped
-      if(keys.has("d")) camera.position.addScaledVector(right,vel);  // flipped
-      if(keys.has(" ")) camera.position.addScaledVector(up,vel);
-      if(keys.has("shift")) camera.position.addScaledVector(up,-vel); // shift = down
+      let speed=0.12;
+      if(keys.has("shift")) speed*=1.8; // sprint
+      if(keys.has("w")) player.vel.addScaledVector(forward,speed);
+      if(keys.has("s")) player.vel.addScaledVector(forward,-speed);
+      if(keys.has("a")) player.vel.addScaledVector(right,-speed);
+      if(keys.has("d")) player.vel.addScaledVector(right,speed);
+      if(keys.has(" ")) { if(player.grounded){ player.vel.y=JUMP_VEL; player.grounded=false; } }
 
-      updateVisibleGridIfNeeded(camera.position.x,camera.position.z);
+      player.vel.y += GRAVITY; // gravity
+      player.pos.add(player.vel); // apply velocity
+      resolveCollisions();       // fix overlaps
+      player.vel.x*=0.7; player.vel.z*=0.7; // damping
+
+      camera.position.copy(player.pos).add(new THREE.Vector3(0,player.size.y*0.4,0));
+
+      updateVisibleGridIfNeeded(player.pos.x, player.pos.z);
       for (const [,ch] of chunks) buildMesh(ch);
 
-      info.textContent=`Pos ${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)} | Block ${Object.keys(BLOCK).find(k=>BLOCK[k]===CURRENT_BLOCK)}`;
+      info.textContent=`Pos ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(1)}, ${player.pos.z.toFixed(1)} | grounded:${player.grounded}`;
       renderer.render(scene,camera);
       requestAnimationFrame(animate);
     }
