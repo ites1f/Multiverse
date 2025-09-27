@@ -53,46 +53,82 @@
     scene.add(dir);
 
     const info = document.getElementById("info");
+/* ===== Input ===== */
+const keys = new Set();
+let pointerLocked = false;
+let yaw = 0, pitch = 0;
 
-    /* ===== Input ===== */
-    const keys = new Set();
-    let pointerLocked = false;
-    let yaw = 0, pitch = 0;
+// 🔹 Moved eyePos + pick ABOVE input section so clicks work
+function eyePos(){
+  // eye ~75% up the player body
+  return player.pos.clone().add(new THREE.Vector3(0, player.size.y * 0.75, 0));
+}
 
-    addEventListener("resize", () => {
-      camera.aspect = innerWidth/innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-    });
-    document.body.addEventListener("click", () => {
-      if (!pointerLocked) renderer.domElement.requestPointerLock();
-    });
-    document.addEventListener("pointerlockchange", () => {
-      pointerLocked = (document.pointerLockElement === renderer.domElement);
-    });
-    document.addEventListener("mousemove", (e) => {
-      if (!pointerLocked) return;
-      const sens = 0.0025, MAX_D = 80;
-      const dx = Math.max(-MAX_D, Math.min(MAX_D, e.movementX||0));
-      const dy = Math.max(-MAX_D, Math.min(MAX_D, e.movementY||0));
-      yaw   -= dx * sens;
-      pitch -= dy * sens;
-      const TWO_PI = Math.PI * 2;
-      if (yaw >  Math.PI) yaw -= TWO_PI;
-      if (yaw < -Math.PI) yaw += TWO_PI;
-      pitch = Math.max(-Math.PI/2+0.001, Math.min(Math.PI/2-0.001, pitch));
-    });
-    addEventListener("keydown", (e) => {
-      const k = e.key.toLowerCase();
-      keys.add(k);
-      if (k==="1") CURRENT_BLOCK=BLOCK.STONE;
-      if (k==="2") CURRENT_BLOCK=BLOCK.GRASS;
-      if (k==="3") CURRENT_BLOCK=BLOCK.DIRT;
-      if (k==="4") CURRENT_BLOCK=BLOCK.GLASS;
-      if (k==="r") regenAll();
-    });
-    addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
-    addEventListener("contextmenu", (e) => e.preventDefault());
+function pick(maxDist=8){
+  const dir = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch,yaw,0,"YXZ"));
+  const pos = eyePos(); // 🔹 use player eye, not camera.position
+  const step = 0.1;
+  let lastAir = pos.clone();
+  for(let i=0;i<maxDist/step;i++){
+    const b = getBlock(Math.floor(pos.x),Math.floor(pos.y),Math.floor(pos.z));
+    if(b!==BLOCK.AIR){
+      return {hit:true,pos:pos.clone().floor(),place:lastAir.clone().floor()};
+    }
+    lastAir.copy(pos);
+    pos.addScaledVector(dir,step);
+  }
+  return {hit:false};
+}
+
+addEventListener("resize", () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+document.body.addEventListener("click", () => {
+  if (!pointerLocked) renderer.domElement.requestPointerLock();
+});
+
+document.addEventListener("pointerlockchange", () => {
+  pointerLocked = (document.pointerLockElement === renderer.domElement);
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!pointerLocked) return;
+  const sens = 0.0025, MAX_D = 80;
+  const dx = Math.max(-MAX_D, Math.min(MAX_D, e.movementX||0));
+  const dy = Math.max(-MAX_D, Math.min(MAX_D, e.movementY||0));
+  yaw   -= dx * sens;
+  pitch -= dy * sens;
+  const TWO_PI = Math.PI * 2;
+  if (yaw >  Math.PI) yaw -= TWO_PI;
+  if (yaw < -Math.PI) yaw += TWO_PI;
+  pitch = Math.max(-Math.PI/2+0.001, Math.min(Math.PI/2-0.001, pitch));
+});
+
+addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  keys.add(k);
+  if (k==="1") CURRENT_BLOCK=BLOCK.STONE;
+  if (k==="2") CURRENT_BLOCK=BLOCK.GRASS;
+  if (k==="3") CURRENT_BLOCK=BLOCK.DIRT;
+  if (k==="4") CURRENT_BLOCK=BLOCK.GLASS;
+  if (k==="r") regenAll();
+});
+
+addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+
+addEventListener("contextmenu", (e) => e.preventDefault());
+
+// 🔹 Add mouse button handler back in
+addEventListener("mousedown",(e)=>{
+  if(!pointerLocked) return;
+  const p = pick(10);
+  if(!p.hit) return;
+  if(e.button===0) setBlock(p.pos.x,p.pos.y,p.pos.z,BLOCK.AIR);          // break
+  if(e.button===2) setBlock(p.place.x,p.place.y,p.place.z,CURRENT_BLOCK); // place
+});
 
     /* ===== Noise ===== */
     function hash2i(x, y) {
