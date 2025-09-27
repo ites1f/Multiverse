@@ -376,6 +376,7 @@
       c.generated=true;
       c.dirty=true;
       enqueueBuild(c);
+      markNeighborsDirty(c.cx,c.cz);
     }
 
     function shouldDrawFace(cur, neighbor){
@@ -524,14 +525,37 @@
       return ch.blocks[idx(lx,ly,lz)];
     }
     function setBlock(wx,wy,wz,id){
-      const cx=Math.floor(wx/CHUNK.X), cz=Math.floor(wz/CHUNK.Z);
-      const ch=chunks.get(key(cx,cz)); if(!ch) return;
-      const lx=wx-cx*CHUNK.X, ly=wy, lz=wz-cz*CHUNK.Z;
+      const cx = Math.floor(wx/CHUNK.X), cz = Math.floor(wz/CHUNK.Z);
+      const ch = chunks.get(key(cx,cz)); if(!ch) return;
+    
+      const lx = wx - cx*CHUNK.X, ly = wy, lz = wz - cz*CHUNK.Z;
       if(lx<0||lx>=CHUNK.X||ly<0||ly>=CHUNK.Y||lz<0||lz>=CHUNK.Z) return;
-      ch.blocks[idx(lx,ly,lz)]=id;
-      ch.dirty = true;
+    
+      const i = idx(lx,ly,lz);
+      if (ch.blocks[i] === id) return; // no change
+      ch.blocks[i] = id;
+    
+      ch.dirty = true; 
       enqueueBuild(ch);
+    
+      // also rebuild neighbors if we touched an edge cell
+      const mark = (nx,nz)=>{
+        const nb = chunks.get(key(nx,nz));
+        if (nb && nb.generated) { nb.dirty = true; enqueueBuild(nb); }
+      };
+      if (lx === 0)           mark(cx-1, cz);
+      if (lx === CHUNK.X-1)   mark(cx+1, cz);
+      if (lz === 0)           mark(cx, cz-1);
+      if (lz === CHUNK.Z-1)   mark(cx, cz+1);
     }
+    function markNeighborsDirty(cx, cz){
+      const offsets = [[-1,0],[1,0],[0,-1],[0,1]];
+      for (const [dx,dz] of offsets){
+        const nb = chunks.get(key(cx+dx, cz+dz));
+        if (nb && nb.generated){ nb.dirty = true; enqueueBuild(nb); }
+      }
+    }
+
 
     /* ===== Player & Picking & Physics ===== */
     const player = {
