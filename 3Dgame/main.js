@@ -472,4 +472,7 @@ function animate(now){
   renderer.render(scene,camera);
   requestAnimationFrame(animate);
 }
+// Force initial terrain generation
+regenAll();
+
 requestAnimationFrame(animate);
