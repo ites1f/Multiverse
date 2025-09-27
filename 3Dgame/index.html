@@ -85,6 +85,28 @@
     let JUMP_VEL =  0.14;
     let WALK     =  0.072;
     let SPRINT   =  0.093;
+    // --- Biome & shape tuning ---
+    let BIOME_SCALE     = 0.0016;  // lower = larger biomes
+    let WARP_SCALE      = 0.015;   // domain warping frequency
+    let WARP_STRENGTH   = 12.0;    // how much to warp coordinates
+
+    // Plains
+    let PLAINS_BASE     = 28;      // base height
+    let PLAINS_WOBBLE   = 2.5;     // tiny variation
+
+    // Hills
+    let HILLS_SCALE     = 0.02;    // hill frequency
+    let HILLS_AMP       = 10;      // hill amplitude
+
+    // Mountains (ridged)
+    let MOUNT_SCALE     = 0.012;   // mountain frequency (larger features)
+    let MOUNT_RIDGES    = 35;      // mountain height
+
+    // “Hilly patches” sprinkled in plains
+    let SPOT_SCALE      = 0.01;    // frequency of spots
+    let SPOT_THRESHOLD  = 0.72;    // higher => fewer spots
+    let SPOT_AMPLITUDE  = 7;       // bump height when a spot hits
+
 
     let GRID_RADIUS = 2;        // render distance
     let BUILDS_PER_FRAME = 8;   // throttle meshing
@@ -173,6 +195,30 @@
     bind("hillSlider",v => { HILL_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
     bind("detailSlider",v=> { DETAIL_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
     bind("mountSlider", v=> { MOUNT_AMP=v; regenAll(); }, v=>v|0);
+    // Ridged noise from fbm: sharp peaks for mountains
+    function ridged(x, y, octaves=4){
+      let amp=1, freq=1, sum=0, norm=0;
+      for(let i=0;i<octaves;i++){
+        // abs(0.5 - fbm) makes crests; 1 - ... inverts to peaks
+        const r = 1.0 - Math.abs(0.5 - fbm2(x*freq, y*freq)) * 2.0;
+        sum += r * amp;
+        norm += amp;
+        amp *= 0.5;
+        freq *= 2.0;
+      }
+      return sum / norm; // ~0..1
+    }
+
+    // Simple domain warp: offset coords before sampling
+    function warp2(x, y){
+      // two low-mid frequency fbm fields to distort coordinates
+      const wx = fbm2(x*WARP_SCALE*2.13, y*WARP_SCALE*0.91);
+      const wy = fbm2(x*WARP_SCALE*1.31, y*WARP_SCALE*1.73);
+      return { x: x + (wx-0.5)*2*WARP_STRENGTH, y: y + (wy-0.5)*2*WARP_STRENGTH };
+    }
+
+// Smoothstep helper for blending
+function sstep(a,b,t){ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(3-2*u); }
 
     /* ===== Noise ===== */
     function hash2i(x, y) {
@@ -199,13 +245,53 @@
     }
     // Multiplicative terrain = flats + mountains
     function sampleTerrain(wx, wz) {
-      const mask   = fbm2(wx*MASK_SCALE,   wz*MASK_SCALE);
-      const hills  = fbm2(wx*HILL_SCALE,   wz*HILL_SCALE);
-      const detail = fbm2(wx*DETAIL_SCALE, wz*DETAIL_SCALE);
-      const mountains = (hills * detail) * (mask * 2.5);
-      const base = 30 + mask * 10;
-      return Math.floor(base + mountains * MOUNT_AMP);
+      // 1) Domain warp for more organic shapes
+      const w = warp2(wx, wz);
+      const x = w.x, y = w.y;
+    
+      // 2) Biome map (very low freq). We’ll split into 3 bands.
+      const biomeN = fbm2(x*BIOME_SCALE, y*BIOME_SCALE); // 0..1
+      // bands (tune these to shift coverage)
+      const tPlains    = sstep(0.00, 0.40, biomeN);  // more weight when biomeN is low
+      const tHills     = sstep(0.35, 0.70, biomeN);  // mid band
+      const tMountains = sstep(0.65, 1.00, biomeN);  // high band
+    
+      // Normalize weights so they sum to 1 (soft overlap)
+      const wSum = tPlains + tHills + tMountains + 1e-6;
+      const bP = tPlains / wSum, bH = tHills / wSum, bM = tMountains / wSum;
+    
+      // 3) Plains generator: almost flat, tiny wobble
+      const plains = PLAINS_BASE
+                   + (fbm2(x*0.03, y*0.03) - 0.5) * 2 * PLAINS_WOBBLE;
+    
+      // 4) Hills generator: regular fbm bumps
+      const hills = PLAINS_BASE + 3
+                  + (fbm2(x*HILLS_SCALE, y*HILLS_SCALE)) * HILLS_AMP;
+    
+      // 5) Mountain generator: ridged for sharp peaks
+      const mountains = PLAINS_BASE + 6
+                      + ridged(x*MOUNT_SCALE, y*MOUNT_SCALE) * MOUNT_RIDGES;
+    
+      // 6) Sprinkle “hilly spots” inside otherwise flat zones
+      //    Raise height locally when a spot noise exceeds a threshold.
+      let spotBump = 0;
+      const spot = fbm2(x*SPOT_SCALE, y*SPOT_SCALE); // 0..1
+      if (spot > SPOT_THRESHOLD){
+        // stronger bump nearer the center of the “spot”
+        const k = (spot - SPOT_THRESHOLD) / (1 - SPOT_THRESHOLD); // 0..1
+        spotBump = k * SPOT_AMPLITUDE;
+      }
+  
+      // 7) Blend by biome
+      let h = bP * plains + bH * hills + bM * mountains;
+  
+      // Let spots mostly affect plains & mild hills (not towering mountains)
+      const spotWeight = bP * 1.0 + bH * 0.6; // bias towards plains
+      h += spotBump * spotWeight;
+  
+      return Math.floor(h);
     }
+    
     // For quick sanity: set to a number to force flat world (e.g., 20). Set to null to use noise.
     const FLAT_WORLD_Y = null;
 
