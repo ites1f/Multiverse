@@ -119,6 +119,12 @@ function fbm2(x,y){
 }
 // Multiplicative terrain = flats + mountains
 function sampleTerrain(wx, wz) {
+  return 20; // flat ground at y=20 everywhere
+}
+
+
+/*
+function sampleTerrain(wx, wz) {
   const mask   = fbm2(wx*MASK_SCALE,   wz*MASK_SCALE);
   const hills  = fbm2(wx*HILL_SCALE,   wz*HILL_SCALE);
   const detail = fbm2(wx*DETAIL_SCALE, wz*DETAIL_SCALE);
@@ -126,7 +132,7 @@ function sampleTerrain(wx, wz) {
   const base = 30 + mask * 10;
   return Math.floor(base + mountains * MOUNT_AMP);
 }
-
+*/
 /* ===== World ===== */
 class Chunk {
   constructor(cx,cz){
