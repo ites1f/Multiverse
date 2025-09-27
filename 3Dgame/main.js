@@ -1,5 +1,18 @@
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 
+/* ---------------------------------------------------
+   DEBUG SWITCH:
+   Start with a spinning cube. If you can see it,
+   set USE_TERRAIN = true to enable the full world.
+--------------------------------------------------- */
+const USE_TERRAIN = false;
+
+/* ===== On-screen error reporter ===== */
+const info = document.getElementById("info");
+function show(msg){ info.textContent = String(msg); }
+window.addEventListener("error", e => { show("JS Error: " + e.message); });
+console.log("main.js loaded");
+
 /* ===== Tunables (sliders override) ===== */
 let GRAVITY  = -0.027;
 let JUMP_VEL =  0.14;
@@ -9,23 +22,20 @@ let SPRINT   =  0.093;
 let GRID_RADIUS = 2;        // render distance
 let BUILDS_PER_FRAME = 8;   // throttle meshing
 
-// Multiplicative noise params (flats + mountains)
+// Multiplicative noise params
 let MASK_SCALE   = 0.003;
 let HILL_SCALE   = 0.02;
 let DETAIL_SCALE = 0.08;
 let MOUNT_AMP    = 28;
-
-/* ===== Config ===== */
-const CHUNK = { X:16, Y:64, Z:16 };
-const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4 };
-let CURRENT_BLOCK = BLOCK.STONE;
 
 /* ===== Scene ===== */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b1220);
 scene.fog = new THREE.Fog(0x0b1220, 80, 220);
 
-const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 2000);
+camera.position.set(0, 5, 12);
+
 const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(devicePixelRatio);
@@ -34,9 +44,8 @@ document.body.appendChild(renderer.domElement);
 
 scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x1a2438, 0.9));
 const dir = new THREE.DirectionalLight(0xffffff, 0.6);
-dir.position.set(0.7,1,0.4); scene.add(dir);
-
-const info = document.getElementById("info");
+dir.position.set(0.7,1,0.4);
+scene.add(dir);
 
 /* ===== Input ===== */
 const keys = new Set();
@@ -63,21 +72,14 @@ document.addEventListener("mousemove", (e) => {
   pitch -= dy * sens;
   pitch = Math.max(-Math.PI/2+0.001, Math.min(Math.PI/2-0.001, pitch));
 });
-addEventListener("keydown", (e) => {
-  const k = e.key.toLowerCase();
-  keys.add(k);
-  if (k==="1") CURRENT_BLOCK=BLOCK.STONE;
-  if (k==="2") CURRENT_BLOCK=BLOCK.GRASS;
-  if (k==="3") CURRENT_BLOCK=BLOCK.DIRT;
-  if (k==="4") CURRENT_BLOCK=BLOCK.GLASS;
-  if (k==="r") regenAll(); // rebuild with current sliders
-});
-addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+addEventListener("keydown", (e) => keys.add(e.key.toLowerCase()));
+addEventListener("keyup",   (e) => keys.delete(e.key.toLowerCase()));
 addEventListener("contextmenu", (e) => e.preventDefault());
 
-/* ===== Slider bindings ===== */
+/* ===== Sliders ===== */
 const bind = (id, setter, fmt=(v)=>v)=> {
   const el = document.getElementById(id);
+  if (!el) return; // safety if HUD not present
   const out = document.getElementById(id.replace("Slider","Val"));
   const sync = ()=> { if(out) out.textContent = fmt(el.value); };
   el.addEventListener("input", (e)=>{ setter(parseFloat(e.target.value)); sync(); });
@@ -94,59 +96,71 @@ bind("hillSlider",v => { HILL_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
 bind("detailSlider",v=> { DETAIL_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
 bind("mountSlider", v=> { MOUNT_AMP=v; regenAll(); }, v=>v|0);
 
-/* ===== Noise ===== */
-function hash2i(x, y) {
-  let h = x*374761393 + y*668265263;
-  h = (h ^ (h>>13)) * 1274126177;
-  return (h>>>0)/0xffffffff;
+/* ===== Minimal sanity test: spinning cube ===== */
+const sanity = new THREE.Mesh(
+  new THREE.BoxGeometry(2,2,2),
+  new THREE.MeshNormalMaterial({ side: THREE.DoubleSide })
+);
+sanity.position.set(0, 2, 0);
+scene.add(sanity);
+
+/* ===== Animate (always renders sanity cube) ===== */
+let last = performance.now();
+function animate(now){
+  const dt=(now-last)/1000; last=now;
+
+  // spin debug cube so we can SEE animation is alive
+  sanity.rotation.y += 1.0 * dt;
+  sanity.rotation.x += 0.5 * dt;
+
+  // If terrain enabled, run the world loop
+  if (USE_TERRAIN && worldReady) worldFrame(dt);
+
+  renderer.render(scene,camera);
+  requestAnimationFrame(animate);
 }
-const smoothstep = t => t*t*(3-2*t);
-function valueNoise2(x,y){
-  const xi=Math.floor(x), yi=Math.floor(y);
-  const tx=x-xi, ty=y-yi;
-  const a=hash2i(xi,yi), b=hash2i(xi+1,yi), c=hash2i(xi,yi+1), d=hash2i(xi+1,yi+1);
-  const sx=smoothstep(tx), sy=smoothstep(ty);
-  const u=a+(b-a)*sx, v=c+(d-c)*sx;
-  return u+(v-u)*sy;
-}
-function fbm2(x,y){
-  let amp=1,freq=1,sum=0,norm=0;
-  for(let i=0;i<4;i++){
-    sum+=valueNoise2(x*freq,y*freq)*amp;
-    norm+=amp; amp*=0.5; freq*=2;
-  }
-  return sum/norm;
-}
-// Multiplicative terrain = flats + mountains
-function sampleTerrain(wx, wz) {
-  return 20; // flat ground at y=20 everywhere
+requestAnimationFrame(animate);
+
+/* ===================================================
+   Everything below is the voxel world (gated by flag)
+=================================================== */
+
+const CHUNK = { X:16, Y:64, Z:16 };
+const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4 };
+let CURRENT_BLOCK = BLOCK.STONE;
+
+let worldReady = false;
+const chunks = new Map();
+const buildQueue = [];
+const key = (cx,cz)=>`${cx},${cz}`;
+const idx = (x,y,z)=> x + CHUNK.X*(z + CHUNK.Z*y);
+
+function scheduleGridRefresh(){ lastChunkX = Infinity; lastChunkZ = Infinity; }
+
+function hash2i(x,y){ let h=x*374761393+y*668265263; h=(h^(h>>13))*1274126177; return (h>>>0)/0xffffffff; }
+const smoothstep=t=>t*t*(3-2*t);
+function valueNoise2(x,y){const xi=Math.floor(x),yi=Math.floor(y);const tx=x-xi,ty=y-yi;
+  const a=hash2i(xi,yi),b=hash2i(xi+1,yi),c=hash2i(xi,yi+1),d=hash2i(xi+1,yi+1);
+  const sx=smoothstep(tx),sy=smoothstep(ty);
+  const u=a+(b-a)*sx,v=c+(d-c)*sx;return u+(v-u)*sy;}
+function fbm2(x,y){let amp=1,freq=1,sum=0,norm=0;for(let i=0;i<4;i++){sum+=valueNoise2(x*freq,y*freq)*amp;norm+=amp;amp*=0.5;freq*=2;}return sum/norm;}
+function sampleTerrain(wx,wz){
+  const mask=fbm2(wx*MASK_SCALE,wz*MASK_SCALE);
+  const hills=fbm2(wx*HILL_SCALE,wz*HILL_SCALE);
+  const detail=fbm2(wx*DETAIL_SCALE,wz*DETAIL_SCALE);
+  const mountains=(hills*detail)*(mask*2.5);
+  const base=30+mask*10;
+  return Math.floor(base + mountains*MOUNT_AMP);
 }
 
-
-/*
-function sampleTerrain(wx, wz) {
-  const mask   = fbm2(wx*MASK_SCALE,   wz*MASK_SCALE);
-  const hills  = fbm2(wx*HILL_SCALE,   wz*HILL_SCALE);
-  const detail = fbm2(wx*DETAIL_SCALE, wz*DETAIL_SCALE);
-  const mountains = (hills * detail) * (mask * 2.5);
-  const base = 30 + mask * 10;
-  return Math.floor(base + mountains * MOUNT_AMP);
-}
-*/
-/* ===== World ===== */
 class Chunk {
   constructor(cx,cz){
     this.cx=cx; this.cz=cz;
     this.blocks=new Uint8Array(CHUNK.X*CHUNK.Y*CHUNK.Z);
-    this.mesh=null;
-    this.generated=false;
-    this.dirty=false;
+    this.mesh=null; this.generated=false; this.dirty=false;
   }
 }
-const chunks = new Map();
-const buildQueue = []; // throttle meshing
-const key = (cx,cz)=>`${cx},${cz}`;
-const idx = (x,y,z)=> x + CHUNK.X*(z + CHUNK.Z*y);
+function enqueueBuild(ch){ if(!buildQueue.includes(ch)) buildQueue.push(ch); }
 
 function generateChunk(c){
   if(c.generated) return;
@@ -164,9 +178,7 @@ function generateChunk(c){
       }
     }
   }
-  c.generated=true;
-  c.dirty=true;
-  enqueueBuild(c);
+  c.generated=true; c.dirty=true; enqueueBuild(c);
 }
 
 function shouldDrawFace(cur, neighbor){
@@ -196,16 +208,10 @@ function neighborBlock(c,x,y,z,dir){
   if(!nc||!nc.generated) return BLOCK.AIR;
   return nc.blocks[idx(nx,ny,nz)];
 }
-/*
+
 function buildMesh(c){
-  if (!c.dirty) return;
-  c.dirty = false;
-  if(c.mesh){
-    scene.remove(c.mesh);
-    c.mesh.geometry.dispose();
-    c.mesh.material.dispose();
-    c.mesh = null;
-  }
+  if(!c.dirty) return; c.dirty=false;
+  if(c.mesh){ scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh.material.dispose(); c.mesh=null; }
 
   const pos=[],norm=[],col=[];
   const baseX=c.cx*CHUNK.X, baseZ=c.cz*CHUNK.Z;
@@ -217,7 +223,6 @@ function buildMesh(c){
   };
   const pushQuad=(p0,p1,p2,p3,n,color)=>{ pushTri(p0,p1,p2,n,color); pushTri(p0,p2,p3,n,color); };
 
-  // Correct face winding
   const addFace=(x,y,z,dir,color)=>{
     const bx=baseX+x, by=y, bz=baseZ+z;
     switch(dir){
@@ -250,73 +255,61 @@ function buildMesh(c){
   geom.setAttribute("color",new THREE.Float32BufferAttribute(col,3));
   geom.computeBoundingSphere();
 
-  const mat=new THREE.MeshLambertMaterial({
-    vertexColors:true,fog:true,
-    transparent:true,opacity:1.0,
-    depthWrite:true,side:THREE.DoubleSide
-  });
-
+  // TEMP: DoubleSide to rule out winding problems
+  const mat=new THREE.MeshLambertMaterial({ vertexColors:true, fog:true, side:THREE.DoubleSide });
 
   c.mesh=new THREE.Mesh(geom,mat);
   scene.add(c.mesh);
 }
-*/
-function buildMesh(c){
-  const geom = new THREE.BoxGeometry(10,10,10);
-  const mat  = new THREE.MeshBasicMaterial({color:0xff0000});
-  const cube = new THREE.Mesh(geom,mat);
-  cube.position.set(c.cx*CHUNK.X, 20, c.cz*CHUNK.Z);
-  scene.add(cube);
-  c.mesh = cube;
-}
 
-
-function enqueueBuild(ch){ if (!buildQueue.includes(ch)) buildQueue.push(ch); }
-
-/* ===== World management ===== */
-let lastChunkX = Infinity, lastChunkZ = Infinity;
+let lastChunkX=Infinity, lastChunkZ=Infinity;
 function ensureChunk(cx,cz){
-  const k = key(cx,cz);
-  let ch = chunks.get(k);
+  const k=key(cx,cz);
+  let ch=chunks.get(k);
   if(!ch){ ch=new Chunk(cx,cz); chunks.set(k,ch); }
   if(!ch.generated) generateChunk(ch);
   return ch;
 }
-function scheduleGridRefresh(){ lastChunkX = Infinity; lastChunkZ = Infinity; }
 function updateVisibleGridIfNeeded(wx,wz){
   const pcx=Math.floor(wx/CHUNK.X), pcz=Math.floor(wz/CHUNK.Z);
-  if (pcx === lastChunkX && pcz === lastChunkZ) return;
-  lastChunkX = pcx; lastChunkZ = pcz;
+  if(pcx===lastChunkX && pcz===lastChunkZ) return;
+  lastChunkX=pcx; lastChunkZ=pcz;
   for(let dz=-GRID_RADIUS;dz<=GRID_RADIUS;dz++){
     for(let dx=-GRID_RADIUS;dx<=GRID_RADIUS;dx++){
-      const ch = ensureChunk(pcx+dx, pcz+dz);
-      if (ch.dirty) enqueueBuild(ch);
+      const ch=ensureChunk(pcx+dx,pcz+dz);
+      if(ch.dirty) enqueueBuild(ch);
     }
   }
 }
 function regenAll(){
-  // clear previous
   for(const [,ch] of chunks){
     if(ch.mesh){ scene.remove(ch.mesh); ch.mesh.geometry.dispose(); ch.mesh.material.dispose(); }
   }
   chunks.clear();
-  buildQueue.length = 0;
-
-  // force grid load around current player pos
-  scheduleGridRefresh();
-  updateVisibleGridIfNeeded(player.pos.x, player.pos.z);
-
-  // mark & queue all loaded chunks immediately
-  for(const [,ch] of chunks){
-    ch.dirty = true;
-    enqueueBuild(ch);
-  }
+  buildQueue.length=0;
+  lastChunkX=Infinity; lastChunkZ=Infinity;
+  updateVisibleGridIfNeeded(player.pos.x,player.pos.z);
+  for(const [,ch] of chunks){ ch.dirty=true; enqueueBuild(ch); }
 }
 
-/* ===== Player / Picking / Physics ===== */
-const player = { pos:new THREE.Vector3(8, 60, 8), vel:new THREE.Vector3(), size:new THREE.Vector3(0.6,1.8,0.6), grounded:false };
-
+/* Player + physics + picking */
+const player = { pos:new THREE.Vector3(8,60,8), vel:new THREE.Vector3(), size:new THREE.Vector3(0.6,1.8,0.6), grounded:false };
 function eyePos(){ return player.pos.clone().add(new THREE.Vector3(0, player.size.y*0.75, 0)); }
+function getBlock(wx,wy,wz){
+  const cx=Math.floor(wx/CHUNK.X), cz=Math.floor(wz/CHUNK.Z);
+  const ch=chunks.get(key(cx,cz)); if(!ch) return BLOCK.AIR;
+  const lx=wx-cx*CHUNK.X, ly=wy, lz=wz-cz*CHUNK.Z;
+  if(lx<0||lx>=CHUNK.X||ly<0||ly>=CHUNK.Y||lz<0||lz>=CHUNK.Z) return BLOCK.AIR;
+  return ch.blocks[idx(lx,ly,lz)];
+}
+function setBlock(wx,wy,wz,id){
+  const cx=Math.floor(wx/CHUNK.X), cz=Math.floor(wz/CHUNK.Z);
+  const ch=chunks.get(key(cx,cz)); if(!ch) return;
+  const lx=wx-cx*CHUNK.X, ly=wy, lz=wz-cz*CHUNK.Z;
+  if(lx<0||lx>=CHUNK.X||ly<0||ly>=CHUNK.Y||lz<0||lz>=CHUNK.Z) return;
+  ch.blocks[idx(lx,ly,lz)]=id;
+  ch.dirty = true; enqueueBuild(ch);
+}
 function pick(maxDist=8){
   const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch,yaw,0,"YXZ"));
   const pos=eyePos(); const step=0.1; let lastAir=pos.clone();
@@ -327,86 +320,68 @@ function pick(maxDist=8){
   } return {hit:false};
 }
 addEventListener("mousedown",(e)=>{
+  if(!USE_TERRAIN) return;
   if(!pointerLocked) return;
   const p=pick(10); if(!p.hit) return;
   if(e.button===0) setBlock(p.pos.x,p.pos.y,p.pos.z,BLOCK.AIR);
-  if(e.button===2) setBlock(p.place.x,p.place.y,p.place.z,CURRENT_BLOCK);
+  if(e.button===2) setBlock(p.place.x,p.place.y,p.place.z,BLOCK.STONE);
 });
 
-// collisions (axis-separated)
-const EPS = 0.001;
+// axis-separated collisions
+const EPS=0.001;
 function eachCollidingBlock(pos, size, cb){
-  const half = size.clone().multiplyScalar(0.5);
-  const pMin = pos.clone().sub(half);
-  const pMax = pos.clone().add(half);
+  const half=size.clone().multiplyScalar(0.5);
+  const pMin=pos.clone().sub(half), pMax=pos.clone().add(half);
   const minX=Math.floor(pMin.x), maxX=Math.floor(pMax.x);
   const minY=Math.floor(pMin.y), maxY=Math.floor(pMax.y);
   const minZ=Math.floor(pMin.z), maxZ=Math.floor(pMax.z);
   for(let x=minX;x<=maxX;x++){
     for(let y=minY;y<=maxY;y++){
       for(let z=minZ;z<=maxZ;z++){
-        if(getBlock(x,y,z)!==BLOCK.AIR){
-          cb(new THREE.Vector3(x,y,z), new THREE.Vector3(x+1,y+1,z+1));
-        }
+        if(getBlock(x,y,z)!==BLOCK.AIR) cb(new THREE.Vector3(x,y,z), new THREE.Vector3(x+1,y+1,z+1));
       }
     }
   }
 }
 function moveAndCollide(dtFactor){
   player.grounded=false;
-
-  // Y
   player.pos.y += player.vel.y * dtFactor;
-  const halfY = player.size.y * 0.5;
+  const halfY=player.size.y*0.5;
   eachCollidingBlock(player.pos,player.size,(bMin,bMax)=>{
     const pMinY=player.pos.y-halfY, pMaxY=player.pos.y+halfY;
-    if (player.vel.y > 0 && pMinY < bMax.y && pMaxY > bMin.y){
-      player.pos.y = bMin.y - halfY - EPS; player.vel.y = 0;
-    }
-    if (player.vel.y < 0 && pMaxY > bMin.y && pMinY < bMax.y){
-      player.pos.y = bMax.y + halfY + EPS; player.vel.y = 0; player.grounded = true;
-    }
+    if(player.vel.y>0 && pMinY<bMax.y && pMaxY>bMin.y){ player.pos.y=bMin.y-halfY-EPS; player.vel.y=0; }
+    if(player.vel.y<0 && pMaxY>bMin.y && pMinY<bMax.y){ player.pos.y=bMax.y+halfY+EPS; player.vel.y=0; player.grounded=true; }
   });
-
-  // X
   player.pos.x += player.vel.x * dtFactor;
-  const halfX = player.size.x * 0.5;
+  const halfX=player.size.x*0.5;
   eachCollidingBlock(player.pos,player.size,(bMin,bMax)=>{
     const pMinX=player.pos.x-halfX, pMaxX=player.pos.x+halfX;
-    if (player.vel.x > 0 && pMaxX > bMin.x && pMinX < bMax.x){
-      player.pos.x = bMin.x - halfX - EPS; player.vel.x = 0;
-    } else if (player.vel.x < 0 && pMinX < bMax.x && pMaxX > bMin.x){
-      player.pos.x = bMax.x + halfX + EPS; player.vel.x = 0;
-    }
+    if(player.vel.x>0 && pMaxX>bMin.x && pMinX<bMax.x){ player.pos.x=bMin.x-halfX-EPS; player.vel.x=0; }
+    else if(player.vel.x<0 && pMinX<bMax.x && pMaxX>bMin.x){ player.pos.x=bMax.x+halfX+EPS; player.vel.x=0; }
   });
-
-  // Z
   player.pos.z += player.vel.z * dtFactor;
-  const halfZ = player.size.z * 0.5;
+  const halfZ=player.size.z*0.5;
   eachCollidingBlock(player.pos,player.size,(bMin,bMax)=>{
     const pMinZ=player.pos.z-halfZ, pMaxZ=player.pos.z+halfZ;
-    if (player.vel.z > 0 && pMaxZ > bMin.z && pMinZ < bMax.z){
-      player.pos.z = bMin.z - halfZ - EPS; player.vel.z = 0;
-    } else if (player.vel.z < 0 && pMinZ < bMax.z && pMaxZ > bMin.z){
-      player.pos.z = bMax.z + halfZ + EPS; player.vel.z = 0;
-    }
+    if(player.vel.z>0 && pMaxZ>bMin.z && pMinZ<bMax.z){ player.pos.z=bMin.z-halfZ-EPS; player.vel.z=0; }
+    else if(player.vel.z<0 && pMinZ<bMax.z && pMaxZ>bMin.z){ player.pos.z=bMax.z+halfZ+EPS; player.vel.z=0; }
   });
 }
 
-/* ===== Startup & Loop ===== */
+function worldInit(){
+  scheduleGridRefresh();
+  updateVisibleGridIfNeeded(player.pos.x,player.pos.z);
+  for(const [,ch] of chunks){ ch.dirty=true; enqueueBuild(ch); }
+  worldReady = true;
+}
 
-// 🔥 Ensure terrain shows on first load
-regenAll();
-
-let last = performance.now();
-function animate(now){
-  const dt=(now-last)/1000; last=now;
+function worldFrame(dt){
   const dtFactor = Math.min(dt*60, 2);
 
   // look
   camera.rotation.set(pitch,yaw,0,"YXZ");
 
-  // move (Shift = sprint; no Ctrl conflicts)
+  // move
   const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)).multiplyScalar(-1).normalize();
   const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
   let speed = keys.has("shift") ? SPRINT : WALK;
@@ -416,21 +391,19 @@ function animate(now){
   if(keys.has("d")) player.vel.addScaledVector(right,    speed);
   if(keys.has(" ") && player.grounded) player.vel.y = JUMP_VEL;
 
-  // gravity + physics
   player.vel.y += GRAVITY * dtFactor;
   moveAndCollide(dtFactor);
   player.vel.x *= 0.91; player.vel.z *= 0.91;
 
   camera.position.copy(player.pos).add(new THREE.Vector3(0, player.size.y*0.4, 0));
 
-  // ensure grid & build limited chunks per frame
   updateVisibleGridIfNeeded(player.pos.x, player.pos.z);
   for(let i=0;i<BUILDS_PER_FRAME && buildQueue.length;i++){
     buildMesh(buildQueue.shift());
   }
 
-  info.textContent = `Pos ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(1)}, ${player.pos.z.toFixed(1)} | grounded:${player.grounded} | queue:${buildQueue.length}`;
-  renderer.render(scene,camera);
-  requestAnimationFrame(animate);
+  show(`Pos ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(1)}, ${player.pos.z.toFixed(1)} | grounded:${player.grounded} | q:${buildQueue.length}`);
 }
-requestAnimationFrame(animate);
+
+/* ---- Kick off world if flag set ---- */
+if (USE_TERRAIN) worldInit();
