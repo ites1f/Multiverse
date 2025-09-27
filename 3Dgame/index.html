@@ -64,34 +64,34 @@
 
     <hr>
     <b>Render</b><br>
-    RenderDist <input id="rSlider" type="range" min="0" max="8" step="1" value="2"> <span id="rVal"></span><br>
-    Builds/frame <input id="bSlider" type="range" min="1" max="24" step="1" value="8"> <span id="bVal"></span><br>
+    RenderDist <input id="rSlider" type="range" min="0" max="10" step="1" value="3"> <span id="rVal"></span><br>
+    Builds/frame <input id="bSlider" type="range" min="1" max="24" step="1" value="12"> <span id="bVal"></span><br>
 
     <hr>
     <b>Noise (Multiplicative)</b><br>
     MaskScale <input id="maskSlider" type="range" min="0.001" max="0.02" step="0.001" value="0.003"> <span id="maskVal"></span><br>
     HillScale <input id="hillSlider" type="range" min="0.01" max="0.08" step="0.001" value="0.02"> <span id="hillVal"></span><br>
     DetailScale <input id="detailSlider" type="range" min="0.05" max="0.3" step="0.005" value="0.08"> <span id="detailVal"></span><br>
-    MountainAmp <input id="mountSlider" type="range" min="5" max="80" step="1" value="28"> <span id="mountVal"></span><br>
+    MountainAmp <input id="mountSlider" type="range" min="5" max="80" step="1" value="40"> <span id="mountVal"></span><br>
     
     <hr>
     <b>Biome / Shape</b><br>
-    BiomeScale <input id="biomeSlider" type="range" min="0.0005" max="0.01" step="0.0001" value="0.0016"> <span id="biomeVal"></span><br>
-    WarpScale <input id="warpScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.015"> <span id="warpScaleVal"></span><br>
-    WarpStrength <input id="warpStrengthSlider" type="range" min="0" max="50" step="1" value="12"> <span id="warpStrengthVal"></span><br>
+    BiomeScale <input id="biomeSlider" type="range" min="0.0005" max="0.01" step="0.0001" value="0.0012"> <span id="biomeVal"></span><br>
+    WarpScale <input id="warpScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="warpScaleVal"></span><br>
+    WarpStrength <input id="warpStrengthSlider" type="range" min="0" max="50" step="1" value="18"> <span id="warpStrengthVal"></span><br>
 
-    PlainsBase <input id="plainsBaseSlider" type="range" min="20" max="60" step="1" value="28"> <span id="plainsBaseVal"></span><br>
-    PlainsWobble <input id="plainsWobbleSlider" type="range" min="0" max="10" step="0.1" value="2.5"> <span id="plainsWobbleVal"></span><br>
+    PlainsBase <input id="plainsBaseSlider" type="range" min="20" max="120" step="1" value="64"> <span id="plainsBaseVal"></span><br>
+    PlainsWobble <input id="plainsWobbleSlider" type="range" min="0" max="10" step="0.1" value="3.0"> <span id="plainsWobbleVal"></span><br>
 
-    HillsScale <input id="hillsScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.02"> <span id="hillsScaleVal"></span><br>
-    HillsAmp <input id="hillsAmpSlider" type="range" min="0" max="30" step="1" value="10"> <span id="hillsAmpVal"></span><br>
+    HillsScale <input id="hillsScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.015"> <span id="hillsScaleVal"></span><br>
+    HillsAmp <input id="hillsAmpSlider" type="range" min="0" max="30" step="1" value="20"> <span id="hillsAmpVal"></span><br>
 
-    MountScale <input id="mountScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="mountScaleVal"></span><br>
-    MountRidges <input id="mountRidgesSlider" type="range" min="10" max="80" step="1" value="35"> <span id="mountRidgesVal"></span><br>
+    MountScale <input id="mountScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.008"> <span id="mountScaleVal"></span><br>
+    MountRidges <input id="mountRidgesSlider" type="range" min="10" max="220" step="1" value="140"> <span id="mountRidgesVal"></span><br>
 
-    SpotScale <input id="spotScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.01"> <span id="spotScaleVal"></span><br>
-    SpotThreshold <input id="spotThresholdSlider" type="range" min="0" max="1" step="0.01" value="0.72"> <span id="spotThresholdVal"></span><br>
-    SpotAmp <input id="spotAmpSlider" type="range" min="0" max="30" step="1" value="7"> <span id="spotAmpVal"></span><br>
+    SpotScale <input id="spotScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="spotScaleVal"></span><br>
+    SpotThreshold <input id="spotThresholdSlider" type="range" min="0" max="1" step="0.01" value="0.70"> <span id="spotThresholdVal"></span><br>
+    SpotAmp <input id="spotAmpSlider" type="range" min="0" max="30" step="1" value="12"> <span id="spotAmpVal"></span><br>
 
 </div>
 
@@ -128,7 +128,7 @@
     let SPOT_AMPLITUDE  = 12;      // how tall the bumps are
     
     // World management
-    let GRID_RADIUS = 2;           // render distance (2 = 5×5 chunks = 80×80 blocks)
+    let GRID_RADIUS = 3;           // render distance (3 = 7×7 chunks)
     let BUILDS_PER_FRAME = 12;     // more chunk builds per frame = faster load, more lag
     
     // Multiplicative noise params (backup shaping)
@@ -146,9 +146,10 @@
     /* ===== Scene ===== */
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0b1220);
-    scene.fog = new THREE.Fog(0x0b1220, 80, 220);
+    // ▼ extended so tall mountains remain visible
+    scene.fog = new THREE.Fog(0x0b1220, 80, 600);
 
-    const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 2000);
+    const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000); // far++
     const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" });
     renderer.setSize(innerWidth, innerHeight);
     renderer.setPixelRatio(devicePixelRatio);
@@ -203,41 +204,41 @@
       const el = document.getElementById(id);
       const out = document.getElementById(id.replace("Slider","Val"));
       const sync = ()=> { if(out) out.textContent = fmt(el.value); };
-      el.addEventListener("input", (e)=>{ setter(parseFloat(e.target.value)); sync(); });
+      el.addEventListener("input", (e)=>{ setter(parseFloat(e.target.value)); regenAll(); sync(); });
       sync();
     };
-    bind("gSlider",   v => GRAVITY=v);
-    bind("jSlider",   v => JUMP_VEL=v);
-    bind("wSlider",   v => WALK=v);
-    bind("sSlider",   v => SPRINT=v);
+    bind("gSlider",   v => { GRAVITY=v; }, v=>v);
+    bind("jSlider",   v => { JUMP_VEL=v; }, v=>v);
+    bind("wSlider",   v => { WALK=v; }, v=>v);
+    bind("sSlider",   v => { SPRINT=v; }, v=>v);
     bind("rSlider",   v => { GRID_RADIUS = v|0; scheduleGridRefresh(); }, v=>v|0);
     bind("bSlider",   v => { BUILDS_PER_FRAME = v|0; }, v=>v|0);
-    bind("maskSlider",v => { MASK_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
-    bind("hillSlider",v => { HILL_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
-    bind("detailSlider",v=> { DETAIL_SCALE=v; regenAll(); }, v=>(+v).toFixed(3));
-    bind("mountSlider", v=> { MOUNT_AMP=v; regenAll(); }, v=>v|0);
-    bind("biomeSlider",     v => { BIOME_SCALE = v; regenAll(); }, v=> (+v).toFixed(4));
-    bind("warpScaleSlider", v => { WARP_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
-    bind("warpStrengthSlider", v => { WARP_STRENGTH = v; regenAll(); }, v=> v|0);
+    bind("maskSlider",v => { MASK_SCALE=v; }, v=>(+v).toFixed(3));
+    bind("hillSlider",v => { HILL_SCALE=v; }, v=>(+v).toFixed(3));
+    bind("detailSlider",v=> { DETAIL_SCALE=v; }, v=>(+v).toFixed(3));
+    bind("mountSlider", v=> { MOUNT_AMP=v; }, v=>v|0);
 
-    bind("plainsBaseSlider",   v => { PLAINS_BASE = v; regenAll(); }, v=> v|0);
-    bind("plainsWobbleSlider", v => { PLAINS_WOBBLE = v; regenAll(); }, v=> (+v).toFixed(1));
+    bind("biomeSlider",     v => { BIOME_SCALE = v; }, v=> (+v).toFixed(4));
+    bind("warpScaleSlider", v => { WARP_SCALE = v; }, v=> (+v).toFixed(3));
+    bind("warpStrengthSlider", v => { WARP_STRENGTH = v; }, v=> v|0);
 
-    bind("hillsScaleSlider", v => { HILLS_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
-    bind("hillsAmpSlider",   v => { HILLS_AMP = v; regenAll(); }, v=> v|0);
+    bind("plainsBaseSlider",   v => { PLAINS_BASE = v; }, v=> v|0);
+    bind("plainsWobbleSlider", v => { PLAINS_WOBBLE = v; }, v=> (+v).toFixed(1));
 
-    bind("mountScaleSlider",  v => { MOUNT_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
-    bind("mountRidgesSlider", v => { MOUNT_RIDGES = v; regenAll(); }, v=> v|0);
+    bind("hillsScaleSlider", v => { HILLS_SCALE = v; }, v=> (+v).toFixed(3));
+    bind("hillsAmpSlider",   v => { HILLS_AMP = v; }, v=> v|0);
 
-    bind("spotScaleSlider",     v => { SPOT_SCALE = v; regenAll(); }, v=> (+v).toFixed(3));
-    bind("spotThresholdSlider", v => { SPOT_THRESHOLD = v; regenAll(); }, v=> (+v).toFixed(2));
-    bind("spotAmpSlider",       v => { SPOT_AMPLITUDE = v; regenAll(); }, v=> v|0);
+    bind("mountScaleSlider",  v => { MOUNT_SCALE = v; }, v=> (+v).toFixed(3));
+    bind("mountRidgesSlider", v => { MOUNT_RIDGES = v; }, v=> v|0);
+
+    bind("spotScaleSlider",     v => { SPOT_SCALE = v; }, v=> (+v).toFixed(3));
+    bind("spotThresholdSlider", v => { SPOT_THRESHOLD = v; }, v=> (+v).toFixed(2));
+    bind("spotAmpSlider",       v => { SPOT_AMPLITUDE = v; }, v=> v|0);
 
     // Ridged noise from fbm: sharp peaks for mountains
     function ridged(x, y, octaves=4){
       let amp=1, freq=1, sum=0, norm=0;
       for(let i=0;i<octaves;i++){
-        // abs(0.5 - fbm) makes crests; 1 - ... inverts to peaks
         const r = 1.0 - Math.abs(0.5 - fbm2(x*freq, y*freq)) * 2.0;
         sum += r * amp;
         norm += amp;
@@ -249,14 +250,13 @@
 
     // Simple domain warp: offset coords before sampling
     function warp2(x, y){
-      // two low-mid frequency fbm fields to distort coordinates
       const wx = fbm2(x*WARP_SCALE*2.13, y*WARP_SCALE*0.91);
       const wy = fbm2(x*WARP_SCALE*1.31, y*WARP_SCALE*1.73);
       return { x: x + (wx-0.5)*2*WARP_STRENGTH, y: y + (wy-0.5)*2*WARP_STRENGTH };
     }
 
-// Smoothstep helper for blending
-function sstep(a,b,t){ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(3-2*u); }
+    // Smoothstep helper for blending
+    function sstep(a,b,t){ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(3-2*u); }
 
     /* ===== Noise ===== */
     function hash2i(x, y) {
@@ -281,56 +281,48 @@ function sstep(a,b,t){ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(
       }
       return sum/norm;
     }
-    // Multiplicative terrain = flats + mountains
+
+    // 1.18-like blend with lower mountain threshold so peaks appear more often
     function sampleTerrain(wx, wz) {
       // 1) Domain warp for more organic shapes
       const w = warp2(wx, wz);
       const x = w.x, y = w.y;
 
-      // 2) Biome map (very low freq). We’ll split into 3 bands.
+      // 2) Biome map (very low freq) split into 3 bands
       const biomeN = fbm2(x*BIOME_SCALE, y*BIOME_SCALE); // 0..1
-      // bands (tune these to shift coverage)
-      const tPlains    = sstep(0.00, 0.40, biomeN);  // more weight when biomeN is low
-      const tHills     = sstep(0.35, 0.70, biomeN);  // mid band
-      const tMountains = sstep(0.65, 1.00, biomeN);  // high band
+      const tPlains    = sstep(0.00, 0.35, biomeN);
+      const tHills     = sstep(0.30, 0.65, biomeN);
+      const tMountains = sstep(0.55, 0.95, biomeN); // lowered threshold
 
-      // Normalize weights so they sum to 1 (soft overlap)
+      // Normalize weights
       const wSum = tPlains + tHills + tMountains + 1e-6;
       const bP = tPlains / wSum, bH = tHills / wSum, bM = tMountains / wSum;
 
-      // 3) Plains generator: almost flat, tiny wobble
+      // 3) Generators
       const plains = PLAINS_BASE
                    + (fbm2(x*0.03, y*0.03) - 0.5) * 2 * PLAINS_WOBBLE;
 
-      // 4) Hills generator: regular fbm bumps
       const hills = PLAINS_BASE + 3
-                  + (fbm2(x*HILLS_SCALE, y*HILLS_SCALE)) * HILLS_AMP;
+                  + fbm2(x*HILLS_SCALE, y*HILLS_SCALE) * HILLS_AMP;
 
-      // 5) Mountain generator: ridged for sharp peaks
       const mountains = PLAINS_BASE + 6
                       + ridged(x*MOUNT_SCALE, y*MOUNT_SCALE) * MOUNT_RIDGES;
 
-      // 6) Sprinkle “hilly spots” inside otherwise flat zones
-      //    Raise height locally when a spot noise exceeds a threshold.
-      let spotBump = 0;
-      const spot = fbm2(x*SPOT_SCALE, y*SPOT_SCALE); // 0..1
-      if (spot > SPOT_THRESHOLD){
-        // stronger bump nearer the center of the “spot”
-        const k = (spot - SPOT_THRESHOLD) / (1 - SPOT_THRESHOLD); // 0..1
-        spotBump = k * SPOT_AMPLITUDE;
-      }
-
-      // 7) Blend by biome
+      // 4) Blend
       let h = bP * plains + bH * hills + bM * mountains;
 
-      // Let spots mostly affect plains & mild hills (not towering mountains)
-      const spotWeight = bP * 1.0 + bH * 0.6; // bias towards plains
-      h += spotBump * spotWeight;
+      // 5) Optional spot bumps (mildly affecting plains/hills)
+      const spot = fbm2(x*SPOT_SCALE, y*SPOT_SCALE);
+      if (spot > SPOT_THRESHOLD){
+        const k = (spot - SPOT_THRESHOLD) / (1 - SPOT_THRESHOLD);
+        const spotWeight = bP * 1.0 + bH * 0.6;
+        h += k * SPOT_AMPLITUDE * spotWeight;
+      }
 
       return Math.floor(h);
     }
 
-    // For quick sanity: set to a number to force flat world (e.g., 20). Set to null to use noise.
+    // For quick sanity: set to a number to force flat world (e.g., 64). Set to null to use noise.
     const FLAT_WORLD_Y = null;
 
     /* ===== World ===== */
@@ -354,7 +346,9 @@ function sstep(a,b,t){ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(
       for(let z=0;z<CHUNK.Z;z++){
         for(let x=0;x<CHUNK.X;x++){
           const wx=baseX+x, wz=baseZ+z;
-          const h= FLAT_WORLD_Y ?? sampleTerrain(wx,wz);
+          // ▼ clamp so we always have space for the grass cap inside the chunk
+          const hRaw = FLAT_WORLD_Y ?? sampleTerrain(wx,wz);
+          const h = Math.max(1, Math.min(CHUNK.Y - 2, hRaw));
           for(let y=0;y<CHUNK.Y;y++){
             let id=BLOCK.AIR;
             if(y===h) id=BLOCK.GRASS;
@@ -526,7 +520,7 @@ function sstep(a,b,t){ const u=Math.max(0,Math.min(1,(t-a)/(b-a))); return u*u*(
 
     /* ===== Player & Picking & Physics ===== */
     const player = {
-      pos: new THREE.Vector3(8, 60, 8),
+      pos: new THREE.Vector3(8, 80, 8),
       vel: new THREE.Vector3(),
       size: new THREE.Vector3(0.6, 1.8, 0.6),
       grounded: false
