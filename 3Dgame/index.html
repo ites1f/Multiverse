@@ -144,24 +144,39 @@
       alphaTest: 0.5, depthWrite: true
     });
 
-    const TILES = 16;
+    // If your atlas is 4×4 tiles (from the PNG I sent):
+    const TILES_X = 4, TILES_Y = 4;
     function tileUV(tx, ty){
-      const s = 1/TILES;
-      return { u0: tx*s, v0: ty*s, u1: (tx+1)*s, v1: (ty+1)*s };
+      const su = 1 / TILES_X, sv = 1 / TILES_Y;
+      return { u0: tx*su, v0: ty*sv, u1: (tx+1)*su, v1: (ty+1)*sv };
     }
-    // faces: 0:+X, 1:-X, 2:+Y(top), 3:-Y(bottom), 4:+Z, 5:-Z
+    const UV_TILES = {
+      STONE: tileUV(0,0),
+      GRASS: tileUV(1,0),
+      DIRT:  tileUV(2,0),
+      GLASS: tileUV(3,0),
+      LOG:   tileUV(0,1),
+      LEAF:  tileUV(1,1),
+    };
+    // Map block → per-face tiles (grass has different top/bottom)
     const blockTiles = {
-      [BLOCK.STONE]: { all: tileUV(0,0) },
-      [BLOCK.DIRT]:  { all: tileUV(1,0) },
-      [BLOCK.GRASS]: { top: tileUV(2,0), side: tileUV(3,0), bottom: tileUV(1,0) },
-      [BLOCK.GLASS]: { all: tileUV(4,0) }
+      [BLOCK.STONE]: { all: UV_TILES.STONE },
+      [BLOCK.DIRT]:  { all: UV_TILES.DIRT  },
+      [BLOCK.GLASS]: { all: UV_TILES.GLASS },
+      [BLOCK.LOG]:   { all: UV_TILES.LOG   },
+      [BLOCK.LEAF]:  { all: UV_TILES.LEAF  },
+      [BLOCK.GRASS]: {
+        top:    UV_TILES.GRASS,
+        side:   UV_TILES.GRASS,  // use same green for side (simple)
+        bottom: UV_TILES.DIRT
+      }
     };
     function uvFor(blockId, faceDir){
       const def = blockTiles[blockId] || blockTiles[BLOCK.STONE];
       if (def.all) return def.all;
-      if (faceDir === 2 && def.top) return def.top;
-      if (faceDir === 3 && def.bottom) return def.bottom;
-      return def.side || def.top || def.bottom || tileUV(0,0);
+      if (faceDir === 2 && def.top)    return def.top;     // +Y
+      if (faceDir === 3 && def.bottom) return def.bottom;  // -Y
+      return def.side || def.top || def.bottom || UV_TILES.STONE;
     }
 
     /* ===== Input ===== */
@@ -359,40 +374,85 @@
     }
 
     function enqueueBuild(ch){ if (!buildQueue.includes(ch)) buildQueue.push(ch); }
-
     function buildMesh(c){
       if (!c.dirty) return;
       c.dirty = false;
       if(c.mesh){
         scene.remove(c.mesh);
         c.mesh.geometry.dispose();
-        c.mesh.material.dispose();
+        c.mesh.material.dispose?.();
         c.mesh = null;
       }
-
+    
       const pos=[], norm=[], uv=[];
       const baseX=c.cx*CHUNK.X, baseZ=c.cz*CHUNK.Z;
-
+    
+      // Push triangle with UVs (rect is {u0,v0,u1,v1})
       const pushTri=(a,b,cpt,n,rect)=>{
         pos.push(a.x,a.y,a.z, b.x,b.y,b.z, cpt.x,cpt.y,cpt.z);
         norm.push(n.x,n.y,n.z, n.x,n.y,n.z, n.x,n.y,n.z);
-        uv.push(rect.u0,rect.v0, rect.u1,rect.v0, rect.u1,rect.v1);
+        // CCW winding: map quad → two tris
+        // tri1 verts: a(0,0), b(1,0), c(1,1)
+        uv.push(rect.u0,rect.v0,  rect.u1,rect.v0,  rect.u1,rect.v1);
       };
-      const pushQuad=(p0,p1,p2,p3,n,rect)=>{ pushTri(p0,p1,p2,n,rect); pushTri(p0,p2,p3,n,rect); };
-
+      const pushQuad=(p0,p1,p2,p3,n,rect)=>{
+        // tri 1: p0,p1,p2  | tri 2: p0,p2,p3
+        pushTri(p0,p1,p2,n,rect);
+        // tri2 uses (0,0)->p0, (1,1)->p2, (0,1)->p3
+        pos.push(p0.x,p0.y,p0.z, p2.x,p2.y,p2.z, p3.x,p3.y,p3.z);
+        norm.push(n.x,n.y,n.z,   n.x,n.y,n.z,   n.x,n.y,n.z);
+        uv.push(rect.u0,rect.v0, rect.u1,rect.v1, rect.u0,rect.v1);
+      };
+    
       const addFace=(x,y,z,dir,blockId)=>{
         const bx=baseX+x, by=y, bz=baseZ+z;
         const rect = uvFor(blockId, dir);
         switch(dir){
-          case 0: pushQuad(new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(1,0,0),rect); break;
-          case 1: pushQuad(new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx,by,bz),new THREE.Vector3(-1,0,0),rect); break;
-          case 2: pushQuad(new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(0,1,0),rect); break;
-          case 3: pushQuad(new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(bx,by,bz),new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(0,-1,0),rect); break;
-          case 4: pushQuad(new THREE.Vector3(bx+1,by,bz+1),new THREE.Vector3(bx+1,by+1,bz+1),new THREE.Vector3(bx,by+1,bz+1),new THREE.Vector3(bx,by,bz+1),new THREE.Vector3(0,0,1),rect); break;
-          case 5: pushQuad(new THREE.Vector3(bx,by,bz),new THREE.Vector3(bx,by+1,bz),new THREE.Vector3(bx+1,by+1,bz),new THREE.Vector3(bx+1,by,bz),new THREE.Vector3(0,0,-1),rect); break;
+          case 0: // +X
+            pushQuad(
+              new THREE.Vector3(bx+1,by,  bz),
+              new THREE.Vector3(bx+1,by+1,bz),
+              new THREE.Vector3(bx+1,by+1,bz+1),
+              new THREE.Vector3(bx+1,by,  bz+1),
+              new THREE.Vector3(1,0,0), rect); break;
+          case 1: // -X
+            pushQuad(
+              new THREE.Vector3(bx,by,  bz+1),
+              new THREE.Vector3(bx,by+1,bz+1),
+              new THREE.Vector3(bx,by+1,bz),
+              new THREE.Vector3(bx,by,  bz),
+              new THREE.Vector3(-1,0,0), rect); break;
+          case 2: // +Y (top)
+            pushQuad(
+              new THREE.Vector3(bx,  by+1,bz),
+              new THREE.Vector3(bx,  by+1,bz+1),
+              new THREE.Vector3(bx+1,by+1,bz+1),
+              new THREE.Vector3(bx+1,by+1,bz),
+              new THREE.Vector3(0,1,0), rect); break;
+          case 3: // -Y (bottom)
+            pushQuad(
+              new THREE.Vector3(bx,  by,  bz+1),
+              new THREE.Vector3(bx,  by,  bz),
+              new THREE.Vector3(bx+1,by,  bz),
+              new THREE.Vector3(bx+1,by,  bz+1),
+              new THREE.Vector3(0,-1,0), rect); break;
+          case 4: // +Z
+            pushQuad(
+              new THREE.Vector3(bx+1,by,  bz+1),
+              new THREE.Vector3(bx+1,by+1,bz+1),
+              new THREE.Vector3(bx,  by+1,bz+1),
+              new THREE.Vector3(bx,  by,  bz+1),
+              new THREE.Vector3(0,0,1), rect); break;
+          case 5: // -Z
+            pushQuad(
+              new THREE.Vector3(bx,  by,  bz),
+              new THREE.Vector3(bx,  by+1,bz),
+              new THREE.Vector3(bx+1,by+1,bz),
+              new THREE.Vector3(bx+1,by,  bz),
+              new THREE.Vector3(0,0,-1), rect); break;
         }
       };
-
+    
       for(let y=0;y<CHUNK.Y;y++){
         for(let z=0;z<CHUNK.Z;z++){
           for(let x=0;x<CHUNK.X;x++){
@@ -405,16 +465,17 @@
           }
         }
       }
-
+    
       const geom=new THREE.BufferGeometry();
       geom.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
       geom.setAttribute("normal",new THREE.Float32BufferAttribute(norm,3));
       geom.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));
       geom.computeBoundingSphere();
-
+    
       c.mesh=new THREE.Mesh(geom, CHUNK_MAT);
       scene.add(c.mesh);
     }
+
 
     /* ===== World management ===== */
     let lastChunkX = Infinity, lastChunkZ = Infinity;
