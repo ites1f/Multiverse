@@ -558,6 +558,8 @@
       geom.computeBoundingSphere();
     
       c.mesh=new THREE.Mesh(geom, CHUNK_MAT);
+      c.mesh.castShadow = true;
+      c.mesh.receiveShadow = true;
       scene.add(c.mesh);
     }
 
