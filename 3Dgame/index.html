@@ -187,6 +187,37 @@
     }
     setSun(45, 180); // midday by default
 //sky
+    const EPS_PLACEMENT = 1e-3; // small gap so touching faces are allowed
+
+    function playerAABB() {
+      const half = player.size.clone().multiplyScalar(0.5);
+      return {
+        min: player.pos.clone().sub(half),
+        max: player.pos.clone().add(half),
+      };
+    }
+
+    function blockAABB(x, y, z) {
+      return {
+        min: new THREE.Vector3(x, y, z),
+        max: new THREE.Vector3(x + 1, y + 1, z + 1),
+      };
+    }
+
+    function aabbOverlap(a, b, eps = 0) {
+      // strict overlap check (not counting just-touching faces as overlap)
+      return (
+        a.min.x < b.max.x - eps && a.max.x > b.min.x + eps &&
+        a.min.y < b.max.y - eps && a.max.y > b.min.y + eps &&
+        a.min.z < b.max.z - eps && a.max.z > b.min.z + eps
+      );
+    }
+
+    function wouldCollideWithPlayer(x, y, z) {
+      const pa = playerAABB();
+      const ba = blockAABB(x, y, z);
+      return aabbOverlap(pa, ba, EPS_PLACEMENT);
+    }
 
     // Background gradient + fog (no Sky shader)
     function makeSkyGradient(top="#87CEEB", bottom="#FFFFFF") {
@@ -722,11 +753,17 @@
           if (!p.hit) return;
         
           if (e.button === 0) {
-            // break the block you hit
+            // break the hit block
             setBlock(p.pos.x, p.pos.y, p.pos.z, BLOCK.AIR);
           } else if (e.button === 2) {
-            // place on the face you aimed at
-            setBlock(p.place.x, p.place.y, p.place.z, CURRENT_BLOCK);
+            // place on the face you aimed at — but never inside player
+            const tx = p.place.x, ty = p.place.y, tz = p.place.z;
+            if (wouldCollideWithPlayer(tx, ty, tz)) {
+              // optional: tiny feedback
+              // console.log("Blocked: placing inside player");
+              return;
+            }
+            setBlock(tx, ty, tz, CURRENT_BLOCK);
           }
         });
 
