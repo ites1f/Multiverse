@@ -184,8 +184,7 @@
 
   // Start with unlit material to rule out lighting issues.
   // You can toggle back to Lambert with "T".
-  let CHUNK_MAT = new THREE.MeshBasicMaterial({ map: atlas });
-
+  let CHUNK_MAT = new THREE.MeshBasicMaterial({ color: 0xff0000 });
   // Later (after chunks exist), press "T" to toggle Basic <-> Lambert for debugging
   let useBasic = true;
   addEventListener("keydown", (e) => {
