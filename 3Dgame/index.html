@@ -217,13 +217,14 @@
         a.min.z < b.max.z - eps && a.max.z > b.min.z + eps
       );
     }
+    // Seeded RNG
     function mulberry32(seed){
       return function(){
         let t = seed += 0x6D2B79F5;
         t = Math.imul(t ^ (t >>> 15), t | 1);
         t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-      }
+      };
     }
     function placeTree(vox, x, y, z, rng){
       // trunk
@@ -514,7 +515,7 @@
         }
       }
       // decorate this chunk with trees
-      //decorateChunkTrees(c, 12345 /* world seed */, fbm2);
+      decorateChunkTrees(c, 12345 /* world seed */, fbm2);
       c.generated=true;
       c.dirty=true;
       enqueueBuild(c);
@@ -543,46 +544,80 @@
     }
 // noise2D should be any coherent noise you already use (returns -1..1 or 0..1).
 // If you don't have one yet, you can map Math.random() with seeded RNG per chunk.
+    // Decorate THIS chunk only; no world access; no meshing inside
     function decorateChunkTrees(chunk, worldSeed, noise2D){
-      const { cx, cz } = chunk; // chunk coords
+      const { cx, cz } = chunk;
       const rng = mulberry32((worldSeed ^ (cx*73856093) ^ (cz*19349663)) >>> 0);
     
-      const pad = 1; // keep leaves inside chunk
-      const sx = cx * CHUNK.X, sz = cz * CHUNK.Z;
-    
-      for (let lx = pad; lx < CHUNK.X - pad; lx++){
-        for (let lz = pad; lz < CHUNK.Z - pad; lz++){
-          // world coords
-          const wx = sx + lx, wz = sz + lz;
+      const pad = 2; // keep leaves inside this chunk
+      for (let lz = pad; lz < CHUNK.Z - pad; lz++){
+        for (let lx = pad; lx < CHUNK.X - pad; lx++){
+          // simple cluster gate
+          const wx = cx*CHUNK.X + lx, wz = cz*CHUNK.Z + lz;
+          const dens = noise2D ? (noise2D(wx, wz)*0.5 + 0.5) : rng();
+          if (dens < 0.66) continue;
+          if (rng() > 0.18) continue;
         
-          // clustering: threshold by noise
-          const dens = (noise2D ? (noise2D(wx*0.02, wz*0.02)*0.5+0.5) : rng());
-          if (dens < 0.72) continue;              // tune density here
-          if (rng() > 0.20)   continue;           // sparse sampling
-        
-          // find ground top in this column inside the chunk
+          // find top block inside this column
           let yTop = -1;
           for (let y = CHUNK.Y-2; y >= 1; y--){
-            const b = chunk.get(lx,y,lz);
-            if (b !== BLOCK.AIR){
-              yTop = y; break;
-            }
+            if (chunk.get(lx,y,lz) !== BLOCK.AIR){ yTop = y; break; }
           }
           if (yTop < 0) continue;
         
-          // must be grass surface with air above
-          if (chunk.get(lx,yTop,lz) !== BLOCK.GRASS) continue;
-          if (chunk.get(lx,yTop+1,lz) !== BLOCK.AIR) continue;
+          // must be grass with air above
+          if (chunk.get(lx, yTop,   lz) !== BLOCK.GRASS) continue;
+          if (chunk.get(lx, yTop+1, lz) !== BLOCK.AIR)   continue;
         
-          // avoid steep cliffs (optional): sample neighbors
-          const n1 = columnTop(chunk, lx-1, lz);
-          const n2 = columnTop(chunk, lx+1, lz);
-          const n3 = columnTop(chunk, lx, lz-1);
-          const n4 = columnTop(chunk, lx, lz+1);
-          if (Math.max(n1,n2,n3,n4) - Math.min(n1,n2,n3,n4) > 2) continue;
-        
-          // place tree in world space using your world vox accessor
-          placeTree(worldVox, wx, yTop+1, wz, rng);
+          // optional slope check (neighbor tops inside chunk only)
+          const top = yTop;
+          const n1 = (lx>0           ) ? (()=>{for(let y=CHUNK.Y-2;y>=1;y--) if (chunk.get(lx-1,y,lz)!==BLOCK.AIR) return y; return -9999;})() : top;
+          const n2 = (lx<CHUNK.X-1   ) ? (()=>{for(let y=CHUNK.Y-2;y>=1;y--) if (chunk.get(lx+1,y,lz)!==BLOCK.AIR) return y; return -9999;})() : top;
+          const n3 = (lz>0           ) ? (()=>{for(let y=CHUNK.Y-2;y>=1;y--) if (chunk.get(lx,y,lz-1)!==BLOCK.AIR) return y; return -9999;})() : top;
+          const n4 = (lz<CHUNK.Z-1   ) ? (()=>{for(let y=CHUNK.Y-2;y>=1;y--) if (chunk.get(lx,y,lz+1)!==BLOCK.AIR) return y; return -9999;})() : top;
+          const hi = Math.max(n1,n2,n3,n4), lo = Math.min(n1,n2,n3,n4);
+          if (hi - lo > 2) continue;
+          
+          // place tree strictly local
+          placeTreeLocal(chunk, lx, yTop+1, lz, rng);
+        }
+      }
+    }
+    // Place ONE tree strictly inside this chunk (no cross-border writes)
+    function placeTreeLocal(chunk, lx, y, lz, rng){
+      const LOG = BLOCK.LOG ?? 5;
+      const LEAVES = BLOCK.LEAVES ?? 6;
+    
+      // trunk height 4..6
+      const h = 4 + Math.floor(rng()*3);
+    
+      // trunk
+      for (let i=0; i<h; i++){
+        const yy = y + i;
+        if (yy <= 0 || yy >= CHUNK.Y) break;
+        if (lx<0||lx>=CHUNK.X||lz<0||lz>=CHUNK.Z) break;
+        chunk.set(lx, yy, lz, LOG);
+      }
+    
+      // leaf blob (radius 2), clamped to this chunk and Y range
+      const topY = y + h - 1;
+      const R = 2;
+      for (let dx=-R; dx<=R; dx++){
+        for (let dy=-R; dy<=R; dy++){
+          for (let dz=-R; dz<=R; dz++){
+            const ax = lx + dx, ay = topY + dy, az = lz + dz;
+            if (ax<0||ax>=CHUNK.X||az<0||az>=CHUNK.Z) continue;   // don't cross chunk edges
+            if (ay<=0||ay>=CHUNK.Y) continue;
+            const d2 = dx*dx + dy*dy + dz*dz;
+            if (d2 <= 3 + (rng()<0.2?0:1)) {
+              // don't overwrite trunk core
+              if (!(dx===0 && dz===0 && dy<=0)) {
+                if (chunk.get(ax,ay,az) === BLOCK.AIR) {
+                  chunk.set(ax,ay,az, LEAVES);
+                }
+              }
+            }
+          }
         }
       }
     }
