@@ -635,9 +635,9 @@
 
     /* ===== Player & Picking & Physics ===== */
     const player = {
-      pos: new THREE.Vector3(8, 80, 8),
+      pos: new THREE.Vector3(0, 60, 0),
       vel: new THREE.Vector3(),
-      size: new THREE.Vector3(0.6, 1.8, 0.6),
+      size: new THREE.Vector3(0.6, 1.1, 0.6),
       grounded: false
     };
     function eyePos(){ return player.pos.clone().add(new THREE.Vector3(0, player.size.y*0.75, 0)); }
