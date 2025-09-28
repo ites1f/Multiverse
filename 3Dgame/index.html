@@ -60,6 +60,8 @@
   <div id="cross"></div>
 <script type="module">
   import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+  import { Sky }   from "https://unpkg.com/three@0.160.0/examples/jsm/objects/Sky.js?module";
+
 
   /* ===== Tunables (sliders override) ===== */
   let GRAVITY  = -0.008;
@@ -119,9 +121,6 @@
   
   // Match fog to a sky-like blue
   scene.fog = new THREE.Fog(0x87CEEB, 80, 600);
-  
-  // ===== Dynamic sky shader =====
-  import { Sky } from "https://unpkg.com/three@0.160.0/examples/jsm/objects/Sky.js";
   
   const sky = new Sky();
   sky.scale.setScalar(450000);
@@ -443,7 +442,7 @@
       if(c.mesh){
         scene.remove(c.mesh);
         c.mesh.geometry.dispose();
-        c.mesh.material.dispose?.();
+        //c.mesh.material.dispose?.();
         c.mesh = null;
       }
     
