@@ -340,6 +340,8 @@
         if (faceDir === 3) return UV_TILES.DIRT;       // -Y
         return UV_TILES.GRASS_SIDE;                    // sides
       }
+      if (blockId === BLOCK.LOG) return UV_TILES.LOG;
+      if (blockId === BLOCK.LEAVES) return UV_TILES.LEAVES;
       return UV_TILES.STONE;
     }
 
