@@ -62,14 +62,14 @@
   import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 
   /* ===== Tunables (sliders override) ===== */
-  let GRAVITY  = -0.003;
-  let JUMP_VEL =  0.39;
-  let WALK     =  0.072;
-  let SPRINT   =  0.093;
+  let GRAVITY  = -0.008;
+  let JUMP_VEL =  0.14;
+  let WALK     =  0.006;
+  let SPRINT   =  0.009;
 
   // friction
   let FRICTION_GROUND = 0.86;
-  let FRICTION_AIR    = 0.93;
+  let FRICTION_AIR    = 0.88;
 
   // --- Biome & shape tuning ---
   let BIOME_SCALE     = 0.0100;
@@ -107,37 +107,52 @@
   const CHUNK = { X:16, Y:256, Z:16 };
   const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4 };
   let CURRENT_BLOCK = BLOCK.STONE;
-
   /* ===== Scene ===== */
   const scene = new THREE.Scene();
-  // Create a vertical gradient canvas
-  function makeSkyGradient(top="#87CEEB", bottom="#FFFFFF") {
-    const size = 512;
-    const canvas = document.createElement("canvas");
-    canvas.width = 1; canvas.height = size;
-    const ctx = canvas.getContext("2d");
-    const grad = ctx.createLinearGradient(0,0,0,size);
-    grad.addColorStop(0, top);
-    grad.addColorStop(1, bottom);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0,0,1,size);
-    return new THREE.CanvasTexture(canvas);
-  }
   
-  scene.background = makeSkyGradient("#87CEEB", "#FFFFFF"); // light blue → white
-  
-  scene.fog = new THREE.Fog(0x0b1220, 80, 600);
   const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000);
   const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" });
   renderer.setSize(innerWidth, innerHeight);
   renderer.setPixelRatio(devicePixelRatio);
   if (renderer.outputColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace;
   document.body.appendChild(renderer.domElement);
-
-  scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x1a2438, 0.9));
-  const dir = new THREE.DirectionalLight(0xffffff, 0.6);
-  dir.position.set(0.7,1,0.4); scene.add(dir);
-
+  
+  // Match fog to a sky-like blue
+  scene.fog = new THREE.Fog(0x87CEEB, 80, 600);
+  
+  // ===== Dynamic sky shader =====
+  import { Sky } from "https://unpkg.com/three@0.160.0/examples/jsm/objects/Sky.js";
+  
+  const sky = new Sky();
+  sky.scale.setScalar(450000);
+  scene.add(sky);
+  
+  const skyUniforms = sky.material.uniforms;
+  // Atmosphere preset
+  skyUniforms.turbidity.value = 10;
+  skyUniforms.rayleigh.value = 2;
+  skyUniforms.mieCoefficient.value = 0.005;
+  skyUniforms.mieDirectionalG.value = 0.8;
+  
+  // Sun position helper
+  const sun = new THREE.Vector3();
+  function setSun(elevationDeg = 45, azimuthDeg = 180) {
+    const phi = THREE.MathUtils.degToRad(90 - elevationDeg);
+    const theta = THREE.MathUtils.degToRad(azimuthDeg);
+    sun.setFromSphericalCoords(1, phi, theta);
+    skyUniforms.sunPosition.value.copy(sun);
+  }
+  setSun(45, 180); // midday
+  
+  // ===== Lights (names unique; declared once) =====
+  const hemiLight = new THREE.HemisphereLight(0xcfe8ff, 0x1a2438, 0.9);
+  scene.add(hemiLight);
+  
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  dirLight.position.set(0.7, 1, 0.4);
+  scene.add(dirLight);
+  
+  // HUD info element
   const info = document.getElementById("info");
 
   /* ===== Texture atlas (PATCHED) =====
