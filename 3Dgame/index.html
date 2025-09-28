@@ -1031,7 +1031,7 @@
     }
 
     function scheduleFriction(dt){
-      const DRAG = 0;                 // per-second drag (tweak 5–8)
+      const DRAG = 18;                 // per-second drag (tweak 5–8)
       const f = Math.exp(-DRAG * dt); // exponential decay
       player.vel.x *= f;
       player.vel.z *= f;
