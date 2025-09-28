@@ -24,12 +24,44 @@
     <div><b>Voxel Prototype</b> — click to lock mouse • F3 toggles HUD</div>
     <div>WASD move • Space jump • Shift sprint • Left: break • Right: place • 1–4 block • R: regen</div>
     <div id="info"></div>
-    <!-- sliders omitted here for brevity, keep your existing controls -->
+
+    <hr>
+    <b>Movement</b><br>
+    Gravity <input id="gSlider" type="range" min="-0.1" max="0" step="0.001" value="-0.003"> <span id="gVal"></span><br>
+    JumpVel <input id="jSlider" type="range" min="0" max="1.0" step="0.01" value="0.39"> <span id="jVal"></span><br>
+    WalkSpd <input id="wSlider" type="range" min="0" max="0.2" step="0.001" value="0.072"> <span id="wVal"></span><br>
+    SprintSpd <input id="sSlider" type="range" min="0" max="0.2" step="0.001" value="0.093"> <span id="sVal"></span><br>
+
+    <hr>
+    <b>Render</b><br>
+    RenderDist <input id="rSlider" type="range" min="0" max="10" step="1" value="6"> <span id="rVal"></span><br>
+    Builds/frame <input id="bSlider" type="range" min="1" max="24" step="1" value="6"> <span id="bVal"></span><br>
+
+    <hr>
+    <b>Biome / Shape</b><br>
+    BiomeScale <input id="biomeSlider" type="range" min="0.0005" max="0.02" step="0.0001" value="0.0100"> <span id="biomeVal"></span><br>
+    WarpScale <input id="warpScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="warpScaleVal"></span><br>
+    WarpStrength <input id="warpStrengthSlider" type="range" min="0" max="50" step="1" value="18"> <span id="warpStrengthVal"></span><br>
+
+    PlainsBase <input id="plainsBaseSlider" type="range" min="0" max="140" step="1" value="33"> <span id="plainsBaseVal"></span><br>
+    PlainsWobble <input id="plainsWobbleSlider" type="range" min="0" max="10" step="0.1" value="3.0"> <span id="plainsWobbleVal"></span><br>
+
+    HillsScale <input id="hillsScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.015"> <span id="hillsScaleVal"></span><br>
+    HillsAmp <input id="hillsAmpSlider" type="range" min="0" max="60" step="1" value="20"> <span id="hillsAmpVal"></span><br>
+
+    MountScale <input id="mountScaleSlider" type="range" min="0.003" max="0.05" step="0.001" value="0.005"> <span id="mountScaleVal"></span><br>
+    MountRidges <input id="mountRidgesSlider" type="range" min="10" max="300" step="1" value="220"> <span id="mountRidgesVal"></span><br>
+
+    SpotScale <input id="spotScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="spotScaleVal"></span><br>
+    SpotThreshold <input id="spotThresholdSlider" type="range" min="0" max="1" step="0.01" value="0.55"> <span id="spotThresholdVal"></span><br>
+    SpotAmp <input id="spotAmpSlider" type="range" min="0" max="60" step="1" value="30"> <span id="spotAmpVal"></span><br>
   </div>
 
   <div id="cross"></div>
 <script type="module">
   import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+  import { Sky }   from "https://unpkg.com/three@0.160.0/examples/jsm/objects/Sky.js?module";
+
 
   /* ===== Tunables (sliders override) ===== */
   let GRAVITY  = -0.008;
@@ -77,80 +109,136 @@
   const CHUNK = { X:16, Y:256, Z:16 };
   const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4 };
   let CURRENT_BLOCK = BLOCK.STONE;
-
   /* ===== Scene ===== */
   const scene = new THREE.Scene();
-
+  
   const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000);
   const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" });
   renderer.setSize(innerWidth, innerHeight);
   renderer.setPixelRatio(devicePixelRatio);
   if (renderer.outputColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace;
   document.body.appendChild(renderer.domElement);
-
-  // Simple gradient background
-  function makeSkyGradient(top="#87CEEB", bottom="#FFFFFF") {
-    const size = 512;
-    const canvas = document.createElement("canvas");
-    canvas.width = 1; canvas.height = size;
-    const ctx = canvas.getContext("2d");
-    const grad = ctx.createLinearGradient(0,0,0,size);
-    grad.addColorStop(0, top);
-    grad.addColorStop(1, bottom);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0,0,1,size);
-    return new THREE.CanvasTexture(canvas);
-  }
-  scene.background = makeSkyGradient("#87CEEB", "#FFFFFF");
+  
+  // Match fog to a sky-like blue
   scene.fog = new THREE.Fog(0x87CEEB, 80, 600);
-
-  // Lights
+  
+  const sky = new Sky();
+  sky.scale.setScalar(450000);
+  scene.add(sky);
+  
+  const skyUniforms = sky.material.uniforms;
+  // Atmosphere preset
+  skyUniforms.turbidity.value = 10;
+  skyUniforms.rayleigh.value = 2;
+  skyUniforms.mieCoefficient.value = 0.005;
+  skyUniforms.mieDirectionalG.value = 0.8;
+  
+  // Sun position helper
+  const sun = new THREE.Vector3();
+  function setSun(elevationDeg = 45, azimuthDeg = 180) {
+    const phi = THREE.MathUtils.degToRad(90 - elevationDeg);
+    const theta = THREE.MathUtils.degToRad(azimuthDeg);
+    sun.setFromSphericalCoords(1, phi, theta);
+    skyUniforms.sunPosition.value.copy(sun);
+  }
+  setSun(45, 180); // midday
+  
+  // ===== Lights (names unique; declared once) =====
   const hemiLight = new THREE.HemisphereLight(0xcfe8ff, 0x1a2438, 0.9);
   scene.add(hemiLight);
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  dirLight.position.set(50, 100, 50);
+  
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  dirLight.position.set(0.7, 1, 0.4);
   scene.add(dirLight);
-
+  
+  // HUD info element
   const info = document.getElementById("info");
 
-  /* ===== Texture atlas ===== */
-  const atlas = new THREE.TextureLoader().load("atlas.png",
+  /* ===== Texture atlas (PATCHED) =====
+     Put atlas.png in the SAME folder as index.html.
+     Prefer power-of-two size (e.g. 64x64, 128x128, 256x256).
+     Our UVs treat (0,0) as TOP-LEFT, so we disable flipY.
+  */
+  const atlas = new THREE.TextureLoader().load(
+    "atlas.png",
     () => console.log("[atlas] loaded", atlas.image?.width, "x", atlas.image?.height),
     undefined,
     (err) => console.error("[atlas] FAILED to load", err)
   );
+
+  // Critical for top-left UVs:
   atlas.flipY = false;
+
+  // Pixel-art friendly filtering:
+  const isPOT = (n)=> (n & (n-1)) === 0;
+  const w = ()=> atlas.image?.width|0, h = ()=> atlas.image?.height|0;
+
   atlas.magFilter = THREE.NearestFilter;
-  atlas.minFilter = THREE.NearestFilter;
+  atlas.minFilter = (atlas.image && isPOT(w()) && isPOT(h()))
+    ? THREE.NearestMipMapNearestFilter
+    : THREE.NearestFilter;
+
   atlas.wrapS = THREE.ClampToEdgeWrapping;
   atlas.wrapT = THREE.ClampToEdgeWrapping;
   if (atlas.colorSpace !== undefined) atlas.colorSpace = THREE.SRGBColorSpace;
 
-  let CHUNK_MAT = new THREE.MeshBasicMaterial({ map: atlas });
+  // Start with unlit material to rule out lighting issues.
+  // You can toggle back to Lambert with "T".
+  let CHUNK_MAT = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  // Later (after chunks exist), press "T" to toggle Basic <-> Lambert for debugging
+  let useBasic = true;
+  addEventListener("keydown", (e) => {
+    if (e.key.toLowerCase() === "t") {
+      useBasic = !useBasic;
+      const mat = useBasic
+        ? new THREE.MeshBasicMaterial({ map: atlas })
+        : new THREE.MeshLambertMaterial({ map: atlas, fog: true, alphaTest: 0.5, depthWrite: true });
+      // 'chunks' will be defined later in your file — this will work at runtime.
+      for (const [,ch] of (window.chunks ?? [])) if (ch.mesh) ch.mesh.material = mat;
+      CHUNK_MAT = mat; // so future meshes use the current material
+      console.log("[mat] now using", useBasic ? "MeshBasicMaterial" : "MeshLambertMaterial");
+    }
+  });
 
+  // If your atlas is a 4×4 tile grid (like the starter), set these:
   const TILES_X = 4, TILES_Y = 4;
+
+  // Small half-pixel inset to avoid bleeding between tiles
   function tileUV(tx, ty){
     const su = 1 / TILES_X, sv = 1 / TILES_Y;
-    return { u0: tx*su, v0: ty*sv, u1: (tx+1)*su, v1: (ty+1)*sv };
+    const safeW = (atlas.image?.width  || 1024);
+    const safeH = (atlas.image?.height || 1024);
+    const insetU = 0.5 / safeW;
+    const insetV = 0.5 / safeH;
+    const u0 = tx*su + insetU, v0 = ty*sv + insetV;
+    const u1 = (tx+1)*su - insetU, v1 = (ty+1)*sv - insetV;
+    return { u0, v0, u1, v1 };
   }
+
+  // Pick the correct cells for your PNG.
+  // (Assuming row 0 has stone/grass/dirt/glass)
   const UV_TILES = {
     STONE:      tileUV(0,0),
     GRASS_TOP:  tileUV(2,0),
     GRASS_SIDE: tileUV(3,0),
     DIRT:       tileUV(1,0),
-    GLASS:      tileUV(0,1)
+    GLASS:      tileUV(0,1) // <-- change if your glass is elsewhere
   };
+
+  // Map block → per-face tiles (grass uses top/side/bottom)
   function uvFor(blockId, faceDir){
     if (blockId === BLOCK.STONE) return UV_TILES.STONE;
     if (blockId === BLOCK.DIRT)  return UV_TILES.DIRT;
     if (blockId === BLOCK.GLASS) return UV_TILES.GLASS;
     if (blockId === BLOCK.GRASS){
-      if (faceDir === 2) return UV_TILES.GRASS_TOP;
-      if (faceDir === 3) return UV_TILES.DIRT;
-      return UV_TILES.GRASS_SIDE;
+      if (faceDir === 2) return UV_TILES.GRASS_TOP;  // +Y
+      if (faceDir === 3) return UV_TILES.DIRT;       // -Y
+      return UV_TILES.GRASS_SIDE;                    // sides
     }
     return UV_TILES.STONE;
   }
+
+  /* ===== keep the rest of YOUR original code below this line ===== */
 
     /* ===== Input ===== */
     const keys = new Set();
