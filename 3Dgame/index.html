@@ -66,11 +66,14 @@
 
 
 
-    /* ===== Tunables (sliders override) ===== */
-    let GRAVITY  = -1;
-    let JUMP_VEL =  2;
-    let WALK     =  1;
-    let SPRINT   =  1.5;
+    // Physics (per-second)
+    let GRAVITY  = -1.62;  // was -0.027 * 60
+    let JUMP_VEL =  8.4;   // was  0.14  * 60
+
+    // Horizontal accel (per-second). With DRAG=6 these settle to ~a/DRAG speed.
+    let WALK     = 27;     // -> ~4.5 units/s cruise (27 / 6)
+    let SPRINT   = 45;     // -> ~7.5 units/s cruise (45 / 6)
+
 
     // friction
     let FRICTION_GROUND = 0.86;
@@ -1027,11 +1030,13 @@
       });
     }
 
-    function scheduleFriction(dtFactor){
-      const f = player.grounded ? FRICTION_GROUND : FRICTION_AIR;
-      const k = Math.pow(f, dtFactor);
-      player.vel.x *= k; player.vel.z *= k;
+    function scheduleFriction(dt){
+      const DRAG = 6;                 // per-second drag (tweak 5–8)
+      const f = Math.exp(-DRAG * dt); // exponential decay
+      player.vel.x *= f;
+      player.vel.z *= f;
     }
+
 
     /* ===== Startup & Loop ===== */
     regenAll();
