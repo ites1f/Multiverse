@@ -822,7 +822,7 @@
       moveAndCollide(dtFactor);
       scheduleFriction(dtFactor);
 
-      camera.position.copy(player.pos).add(new THREE.Vector3(0, player.size.y*0.4, 0));
+      camera.position.copy(player.pos).add(new THREE.Vector3(0, player.size.y*0.75, 0));
 
       // chunk loading & meshing
       updateVisibleGridIfNeeded(player.pos.x, player.pos.z);
