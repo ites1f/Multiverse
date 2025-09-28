@@ -986,28 +986,29 @@
     /* ===== Startup & Loop ===== */
     regenAll();
 
+    // --- Fixed timestep loop ---
     let last = performance.now();
-    function animate(now){
-      const dt=(now-last)/1000; last=now;
-      const dtFactor = Math.min(dt*60, 2);
+    let acc = 0;
+    const STEP = 1/120; // physics step (seconds)
 
+    function gameStep(dt){
       // look
       camera.rotation.set(pitch,yaw,0,"YXZ");
 
-      // move
+      // move (per second units)
       const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)).multiplyScalar(-1).normalize();
       const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
       let speed = keys.has("shift") ? SPRINT : WALK;
-      if(keys.has("w")) player.vel.addScaledVector(forward,  speed);
-      if(keys.has("s")) player.vel.addScaledVector(forward, -speed);
-      if(keys.has("a")) player.vel.addScaledVector(right,   -speed);
-      if(keys.has("d")) player.vel.addScaledVector(right,    speed);
+      if(keys.has("w")) player.vel.addScaledVector(forward,  speed*dt);
+      if(keys.has("s")) player.vel.addScaledVector(forward, -speed*dt);
+      if(keys.has("a")) player.vel.addScaledVector(right,   -speed*dt);
+      if(keys.has("d")) player.vel.addScaledVector(right,    speed*dt);
       if(keys.has(" ") && player.grounded) player.vel.y = JUMP_VEL;
 
       // physics
-      player.vel.y += GRAVITY * dtFactor;
-      moveAndCollide(dtFactor);
-      scheduleFriction(dtFactor);
+      player.vel.y += GRAVITY * dt;
+      moveAndCollide(dt);
+      scheduleFriction(dt);
 
       camera.position.copy(player.pos).add(new THREE.Vector3(0, player.size.y*0.75, 0));
 
@@ -1018,10 +1019,21 @@
       }
 
       info.textContent = `Pos ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(1)}, ${player.pos.z.toFixed(1)} | grounded:${player.grounded} | queue:${buildQueue.length}`;
-      renderer.render(scene,camera);
-      requestAnimationFrame(animate);
     }
-    requestAnimationFrame(animate);
+
+    function loop(now){
+      acc += Math.min(0.1, (now - last) / 1000); // accumulate dt, clamp big gaps
+      last = now;
+
+      while (acc >= STEP){
+        gameStep(STEP);
+        acc -= STEP;
+      }
+
+      renderer.render(scene,camera);
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
   </script>
 </body>
 </html>
