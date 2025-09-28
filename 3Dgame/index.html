@@ -67,10 +67,10 @@
 
 
     /* ===== Tunables (sliders override) ===== */
-    let GRAVITY  = -0.008;
-    let JUMP_VEL =  0.16;
-    let WALK     =  0.009;
-    let SPRINT   =  0.013;
+    let GRAVITY  = -0.48;
+    let JUMP_VEL =  9.6;
+    let WALK     =  0.54;
+    let SPRINT   =  0.90;
 
     // friction
     let FRICTION_GROUND = 0.86;
@@ -399,6 +399,8 @@
       if (k==="2") CURRENT_BLOCK=BLOCK.GRASS;
       if (k==="3") CURRENT_BLOCK=BLOCK.DIRT;
       if (k==="4") CURRENT_BLOCK=BLOCK.GLASS;
+      if (k==="5") CURRENT_BLOCK=BLOCK.LOG;
+      if (k==="6") CURRENT_BLOCK=BLOCK.LEAVES;
       if (k==="r") regenAll();
     });
     addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
@@ -1037,7 +1039,7 @@
     // --- Fixed timestep loop ---
     let last = performance.now();
     let acc = 0;
-    const STEP = 0/1200; // physics step (seconds)
+    const STEP = 1/120; // physics step (seconds)
 
     function gameStep(dt){
       // look
