@@ -226,6 +226,18 @@
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
       };
     }
+    // --- Chunk array helpers (no methods on chunk needed) ---
+    function cIdx(x,y,z){ return x + CHUNK.X*(z + CHUNK.Z*y); }
+      
+    function cGet(c, x,y,z){
+      if (x<0||x>=CHUNK.X||y<0||y>=CHUNK.Y||z<0||z>=CHUNK.Z) return BLOCK.AIR;
+      return c.blocks[cIdx(x,y,z)];
+    }
+    function cSet(c, x,y,z, v){
+      if (x<0||x>=CHUNK.X||y<0||y>=CHUNK.Y||z<0||z>=CHUNK.Z) return;
+      c.blocks[cIdx(x,y,z)] = v;
+    }
+    
     function placeTree(vox, x, y, z, rng){
       // trunk
       const h = 4 + Math.floor(rng()*3); // 4..6
@@ -549,36 +561,38 @@
       const { cx, cz } = chunk;
       const rng = mulberry32((worldSeed ^ (cx*73856093) ^ (cz*19349663)) >>> 0);
     
-      const pad = 2; // keep leaves inside this chunk
-      for (let lz = pad; lz < CHUNK.Z - pad; lz++){
-        for (let lx = pad; lx < CHUNK.X - pad; lx++){
-          // simple cluster gate
+      const pad = 2;
+      for (let lz=pad; lz<CHUNK.Z-pad; lz++){
+        for (let lx=pad; lx<CHUNK.X-pad; lx++){
           const wx = cx*CHUNK.X + lx, wz = cz*CHUNK.Z + lz;
+        
+          // cluster gate (use your fbm2 or similar)
           const dens = noise2D ? (noise2D(wx, wz)*0.5 + 0.5) : rng();
           if (dens < 0.66) continue;
           if (rng() > 0.18) continue;
         
           // find top block inside this column
           let yTop = -1;
-          for (let y = CHUNK.Y-2; y >= 1; y--){
-            if (chunk.get(lx,y,lz) !== BLOCK.AIR){ yTop = y; break; }
+          for (let y=CHUNK.Y-2; y>=1; y--){
+            if (cGet(chunk, lx,y,lz) !== BLOCK.AIR){ yTop = y; break; }
           }
           if (yTop < 0) continue;
         
-          // must be grass with air above
-          if (chunk.get(lx, yTop,   lz) !== BLOCK.GRASS) continue;
-          if (chunk.get(lx, yTop+1, lz) !== BLOCK.AIR)   continue;
+          // must be a grass surface with air above
+          if (cGet(chunk, lx, yTop,   lz) !== BLOCK.GRASS) continue;
+          if (cGet(chunk, lx, yTop+1, lz) !== BLOCK.AIR)   continue;
         
-          // optional slope check (neighbor tops inside chunk only)
-          const top = yTop;
-          const n1 = (lx>0           ) ? (()=>{for(let y=CHUNK.Y-2;y>=1;y--) if (chunk.get(lx-1,y,lz)!==BLOCK.AIR) return y; return -9999;})() : top;
-          const n2 = (lx<CHUNK.X-1   ) ? (()=>{for(let y=CHUNK.Y-2;y>=1;y--) if (chunk.get(lx+1,y,lz)!==BLOCK.AIR) return y; return -9999;})() : top;
-          const n3 = (lz>0           ) ? (()=>{for(let y=CHUNK.Y-2;y>=1;y--) if (chunk.get(lx,y,lz-1)!==BLOCK.AIR) return y; return -9999;})() : top;
-          const n4 = (lz<CHUNK.Z-1   ) ? (()=>{for(let y=CHUNK.Y-2;y>=1;y--) if (chunk.get(lx,y,lz+1)!==BLOCK.AIR) return y; return -9999;})() : top;
-          const hi = Math.max(n1,n2,n3,n4), lo = Math.min(n1,n2,n3,n4);
-          if (hi - lo > 2) continue;
-          
-          // place tree strictly local
+          // gentle slope only (neighbors inside same chunk)
+          const neighTop = (qx,qz)=>{
+            if (qx<0||qx>=CHUNK.X||qz<0||qz>=CHUNK.Z) return yTop;
+            for (let y=CHUNK.Y-2; y>=1; y--) if (cGet(chunk,qx,y,qz)!==BLOCK.AIR) return y;
+            return yTop;
+          };
+          const n1 = neighTop(lx-1,lz), n2 = neighTop(lx+1,lz),
+                n3 = neighTop(lx,lz-1), n4 = neighTop(lx,lz+1);
+          if (Math.max(n1,n2,n3,n4) - Math.min(n1,n2,n3,n4) > 2) continue;
+        
+          // place tree
           placeTreeLocal(chunk, lx, yTop+1, lz, rng);
         }
       }
@@ -588,32 +602,29 @@
       const LOG = BLOCK.LOG ?? 5;
       const LEAVES = BLOCK.LEAVES ?? 6;
     
-      // trunk height 4..6
-      const h = 4 + Math.floor(rng()*3);
+      const h = 4 + Math.floor(rng()*3); // trunk 4..6
     
       // trunk
       for (let i=0; i<h; i++){
         const yy = y + i;
-        if (yy <= 0 || yy >= CHUNK.Y) break;
-        if (lx<0||lx>=CHUNK.X||lz<0||lz>=CHUNK.Z) break;
-        chunk.set(lx, yy, lz, LOG);
+        if (yy<=0 || yy>=CHUNK.Y) break;
+        cSet(chunk, lx, yy, lz, LOG);
       }
     
-      // leaf blob (radius 2), clamped to this chunk and Y range
+      // canopy
       const topY = y + h - 1;
       const R = 2;
       for (let dx=-R; dx<=R; dx++){
         for (let dy=-R; dy<=R; dy++){
           for (let dz=-R; dz<=R; dz++){
-            const ax = lx + dx, ay = topY + dy, az = lz + dz;
-            if (ax<0||ax>=CHUNK.X||az<0||az>=CHUNK.Z) continue;   // don't cross chunk edges
+            const ax = lx+dx, ay = topY+dy, az = lz+dz;
+            if (ax<0||ax>=CHUNK.X||az<0||az>=CHUNK.Z) continue; // stay inside
             if (ay<=0||ay>=CHUNK.Y) continue;
             const d2 = dx*dx + dy*dy + dz*dz;
-            if (d2 <= 3 + (rng()<0.2?0:1)) {
-              // don't overwrite trunk core
-              if (!(dx===0 && dz===0 && dy<=0)) {
-                if (chunk.get(ax,ay,az) === BLOCK.AIR) {
-                  chunk.set(ax,ay,az, LEAVES);
+            if (d2 <= 3 + (rng()<0.2?0:1)){
+              if (!(dx===0 && dz===0 && dy<=0)){                // don't overwrite trunk core
+                if (cGet(chunk, ax,ay,az) === BLOCK.AIR){
+                  cSet(chunk, ax,ay,az, LEAVES);
                 }
               }
             }
