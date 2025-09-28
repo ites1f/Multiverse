@@ -61,6 +61,7 @@
 
   <script type="module">
     import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+    import { Sky } from "https://unpkg.com/three@0.160.0/examples/jsm/objects/Sky.js";
 
     /* ===== Tunables (sliders override) ===== */
     let GRAVITY  = -0.003;
@@ -117,7 +118,29 @@
     renderer.setPixelRatio(devicePixelRatio);
     if (renderer.outputColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
+//sky
+    // Sky dome
+    const sky = new Sky();
+    sky.scale.setScalar(450000); // make it huge
+    scene.add(sky);
 
+    // Sky uniforms
+    const skyUniforms = sky.material.uniforms;
+    skyUniforms["turbidity"].value = 10;
+    skyUniforms["rayleigh"].value = 2;
+    skyUniforms["mieCoefficient"].value = 0.005;
+    skyUniforms["mieDirectionalG"].value = 0.8;
+
+    // Sun position helper
+    const sun = new THREE.Vector3();
+    function setSun(elevationDeg = 45, azimuthDeg = 180) {
+      const phi = THREE.MathUtils.degToRad(90 - elevationDeg); // elevation
+      const theta = THREE.MathUtils.degToRad(azimuthDeg);      // azimuth
+      sun.setFromSphericalCoords(1, phi, theta);
+      skyUniforms["sunPosition"].value.copy(sun);
+    }
+    setSun(45, 180); // midday by default
+//sky
     // Background gradient + fog (no Sky shader)
     function makeSkyGradient(top="#87CEEB", bottom="#FFFFFF") {
       const size = 512;
@@ -131,7 +154,7 @@
       ctx.fillRect(0,0,1,size);
       return new THREE.CanvasTexture(canvas);
     }
-    scene.background = makeSkyGradient("#87CEEB", "#FFFFFF");
+    //scene.background = makeSkyGradient("#87CEEB", "#FFFFFF");
     scene.fog = new THREE.Fog(0x87CEEB, 80, 600);
 
     // Lights
