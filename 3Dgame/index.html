@@ -597,6 +597,86 @@
         }
       }
     }
+    // --- Biome-aware tree decorator (local, non-recursive) ---
+    function decorateChunkTrees(chunk, worldSeed, noise2D){
+      const { cx, cz } = chunk;
+      const rng = mulberry32((worldSeed ^ (cx*73856093) ^ (cz*19349663)) >>> 0);
+    
+      // 1) Biome mask (large regions). Use low frequency so areas are big.
+      const BIOME_SCALE = 0.004; // smaller = larger regions
+      const wx0 = cx * CHUNK.X, wz0 = cz * CHUNK.Z;
+      const bRaw = noise2D ? noise2D(wx0 * BIOME_SCALE, wz0 * BIOME_SCALE) : (rng()*2-1);
+      const biome = (bRaw * 0.5) + 0.5; // 0..1
+    
+      // 2) Classify & set per-chunk budget
+      //    - forest: many trees
+      //    - plains: at most ~1 tree per 4 chunks (chunk-gated)
+      let maxTrees, densThresh, sampleProb;
+    
+      if (biome >= 0.55) {               // FOREST
+        maxTrees   = 10 + Math.floor(biome * 6); // 10..16
+        densThresh = 0.58;                         // allow more sites
+        sampleProb = 0.45;                         // sample many columns
+      } else if (biome <= 0.45) {        // PLAINS
+        // gate 3/4 of plains chunks to have zero trees (≈1 per 4 chunks)
+        const gate = (((cx*9127) ^ (cz*23197) ^ worldSeed) & 3) === 0;
+        maxTrees   = gate ? 1 : 0;
+        densThresh = 0.80;
+        sampleProb = gate ? 0.15 : 0.0;
+      } else {                           // TRANSITION
+        maxTrees   = 3;
+        densThresh = 0.70;
+        sampleProb = 0.25;
+      }
+    
+      if (maxTrees <= 0 || sampleProb <= 0) return;
+    
+      // 3) Scan positions inside the chunk with padding (avoid leaf spill)
+      const pad = 2;
+      let made = 0;
+    
+      // shuffle-ish start offsets so trees don't align in a grid
+      const sx = pad + Math.floor(rng() * 3);
+      const sz = pad + Math.floor(rng() * 3);
+    
+      for (let lz = sz; lz < CHUNK.Z - pad && made < maxTrees; lz++){
+        for (let lx = sx; lx < CHUNK.X - pad && made < maxTrees; lx++){
+          if (rng() > sampleProb) continue;
+        
+          const wx = wx0 + lx, wz = wz0 + lz;
+        
+          // local density noise (higher freq than biome)
+          const dens = noise2D ? (noise2D(wx * 0.02, wz * 0.02) * 0.5 + 0.5) : rng();
+          if (dens < densThresh) continue;
+        
+          // find top block
+          let yTop = -1;
+          for (let y = CHUNK.Y - 2; y >= 1; y--){
+            if (cGet(chunk, lx, y, lz) !== BLOCK.AIR){ yTop = y; break; }
+          }
+          if (yTop < 0) continue;
+        
+          // must be grass with air above
+          if (cGet(chunk, lx, yTop,   lz) !== BLOCK.GRASS) continue;
+          if (cGet(chunk, lx, yTop+1, lz) !== BLOCK.AIR)   continue;
+        
+          // gentle slope (within this chunk)
+          const neighTop = (qx,qz)=>{
+            if (qx<0||qx>=CHUNK.X||qz<0||qz>=CHUNK.Z) return yTop;
+            for (let yy=CHUNK.Y-2; yy>=1; yy--) if (cGet(chunk,qx,yy,qz)!==BLOCK.AIR) return yy;
+            return yTop;
+          };
+          const n1 = neighTop(lx-1,lz), n2 = neighTop(lx+1,lz),
+                n3 = neighTop(lx,lz-1), n4 = neighTop(lx,lz+1);
+          if (Math.max(n1,n2,n3,n4) - Math.min(n1,n2,n3,n4) > 2) continue;
+        
+          // place tree strictly local
+          placeTreeLocal(chunk, lx, yTop+1, lz, rng);
+          made++;
+        }
+      }
+    }
+
     // Place ONE tree strictly inside this chunk (no cross-border writes)
     function placeTreeLocal(chunk, lx, y, lz, rng){
       const LOG = BLOCK.LOG ?? 5;
