@@ -236,7 +236,9 @@
     scene.fog = new THREE.Fog(0x87CEEB, 80, 600);
 
     // Lights
-    scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x1a2438, 0.9));
+    scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x7aa0b8, 0.85));
+    const amb = new THREE.AmbientLight(0xffffff, 0.15); // 10–20% is enough
+    scene.add(amb);
     const dir = new THREE.DirectionalLight(0xffffff, 0.6);
     dir.position.set(0.7,1,0.4); scene.add(dir);
 
