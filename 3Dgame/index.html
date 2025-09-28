@@ -122,7 +122,7 @@
     document.body.appendChild(renderer.domElement);
     // Enable shadows globally
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFHardShadowMap; // nice soft shadows
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // nice soft shadows
 
 //sky
     // Sky dome
@@ -148,11 +148,11 @@
     scene.add(sunLight);
 
     // Shadow quality / coverage
-    sunLight.shadow.mapSize.set(2048, 2048);   // 1024..4096; higher = sharper, slower
+    sunLight.shadow.mapSize.set(512, 512);   // 1024..4096; higher = sharper, slower
     sunLight.shadow.camera.near = 0.5;
     sunLight.shadow.camera.far  = 1500;
     // Shadow camera bounds (large square over world)
-    const SHADOW_RADIUS = 300;
+    const SHADOW_RADIUS = 150;
     sunLight.shadow.camera.left   = -SHADOW_RADIUS;
     sunLight.shadow.camera.right  =  SHADOW_RADIUS;
     sunLight.shadow.camera.top    =  SHADOW_RADIUS;
@@ -640,40 +640,114 @@
       grounded: false
     };
     function eyePos(){ return player.pos.clone().add(new THREE.Vector3(0, player.size.y*0.75, 0)); }
-    function pick(maxDist=8){
-      const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch,yaw,0,"YXZ"));
-      const pos=eyePos(); const step=0.1; let lastAir=pos.clone();
-      for(let i=0;i<maxDist/step;i++){
-        const b=getBlock(Math.floor(pos.x),Math.floor(pos.y),Math.floor(pos.z));
-        if(b!==BLOCK.AIR) return {hit:true,pos:pos.clone().floor(),place:lastAir.clone().floor()};
-        lastAir.copy(pos); pos.addScaledVector(dir,step);
-      } return {hit:false};
+    // Precise voxel raycast (Amanatides & Woo)
+    function pick(maxDist = 8) {
+      const origin = eyePos();
+      const dir = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, "YXZ"));
+      if (dir.lengthSq() === 0) return { hit:false };
+      dir.normalize();
+    
+      // current voxel
+      let x = Math.floor(origin.x);
+      let y = Math.floor(origin.y);
+      let z = Math.floor(origin.z);
+    
+      // step and initial tMax/tDelta for each axis
+      const stepX = dir.x > 0 ? 1 : -1;
+      const stepY = dir.y > 0 ? 1 : -1;
+      const stepZ = dir.z > 0 ? 1 : -1;
+    
+      const invX = dir.x !== 0 ? 1 / dir.x : Infinity;
+      const invY = dir.y !== 0 ? 1 / dir.y : Infinity;
+      const invZ = dir.z !== 0 ? 1 / dir.z : Infinity;
+    
+      const nextVoxelBoundary = (o, s, v) => (s > 0 ? v + 1 - o : o - v);
+    
+      let tMaxX = invX === Infinity ? Infinity : Math.abs(nextVoxelBoundary(origin.x, stepX, x) * invX);
+      let tMaxY = invY === Infinity ? Infinity : Math.abs(nextVoxelBoundary(origin.y, stepY, y) * invY);
+      let tMaxZ = invZ === Infinity ? Infinity : Math.abs(nextVoxelBoundary(origin.z, stepZ, z) * invZ);
+    
+      const tDeltaX = Math.abs(invX);
+      const tDeltaY = Math.abs(invY);
+      const tDeltaZ = Math.abs(invZ);
+    
+      // track which face we just crossed to compute normal
+      let faceNormal = new THREE.Vector3(0,0,0);
+    
+      // visit the starting voxel too (in case you're “inside” a block)
+      const maxT = maxDist;
+      let t = 0;
+    
+      // helper to test the current voxel
+      const isSolid = () => getBlock(x, y, z) !== BLOCK.AIR;
+    
+      if (isSolid()) {
+        // we're already inside a block: normal points opposite the smallest tMax axis
+        // pick the axis with smallest tMax to indicate which face we hit entering
+        if (tMaxX <= tMaxY && tMaxX <= tMaxZ) faceNormal.set(-stepX, 0, 0);
+        else if (tMaxY <= tMaxX && tMaxY <= tMaxZ) faceNormal.set(0, -stepY, 0);
+        else faceNormal.set(0, 0, -stepZ);
+        const pos = new THREE.Vector3(x, y, z);
+        const place = pos.clone().add(faceNormal); // place on the face you are looking at
+        return { hit:true, pos, normal: faceNormal.clone(), place };
+      }
+    
+      // march through voxels
+      while (t <= maxT) {
+        // advance to next voxel boundary on the smallest tMax axis
+        if (tMaxX <= tMaxY && tMaxX <= tMaxZ) {
+          x += stepX; t = tMaxX; tMaxX += tDeltaX; faceNormal.set(-stepX, 0, 0);
+        } else if (tMaxY <= tMaxX && tMaxY <= tMaxZ) {
+          y += stepY; t = tMaxY; tMaxY += tDeltaY; faceNormal.set(0, -stepY, 0);
+        } else {
+          z += stepZ; t = tMaxZ; tMaxZ += tDeltaZ; faceNormal.set(0, 0, -stepZ);
+        }
+      
+        if (t > maxT) break;
+      
+        if (isSolid()) {
+          const pos = new THREE.Vector3(x, y, z);
+          const place = pos.clone().add(faceNormal); // the adjacent empty voxel on the hit face
+          return { hit:true, pos, normal: faceNormal.clone(), place };
+        }
+      }
+    
+      return { hit:false };
     }
-    addEventListener("mousedown",(e)=>{
-      if(!pointerLocked) return;
-      const p=pick(10); if(!p.hit) return;
-      if(e.button===0) setBlock(p.pos.x,p.pos.y,p.pos.z,BLOCK.AIR);
-      if(e.button===2) setBlock(p.place.x,p.place.y,p.place.z,CURRENT_BLOCK);
-    });
 
-    const EPS = 0.001;
-    function eachCollidingBlock(pos, size, cb){
-      const half = size.clone().multiplyScalar(0.5);
-      const pMin = pos.clone().sub(half);
-      const pMax = pos.clone().add(half);
-      const minX=Math.floor(pMin.x), maxX=Math.floor(pMax.x);
-      const minY=Math.floor(pMin.y), maxY=Math.floor(pMax.y);
-      const minZ=Math.floor(pMin.z), maxZ=Math.floor(pMax.z);
-      for(let x=minX;x<=maxX;x++){
-        for(let y=minY;y<=maxY;y++){
-          for(let z=minZ;z<=maxZ;z++){
-            if(getBlock(x,y,z)!==BLOCK.AIR){
-              cb(new THREE.Vector3(x,y,z), new THREE.Vector3(x+1,y+1,z+1));
+        addEventListener("mousedown", (e) => {
+          if (!pointerLocked) return;
+          const p = pick(10);
+          if (!p.hit) return;
+        
+          if (e.button === 0) {
+            // break the block you hit
+            setBlock(p.pos.x, p.pos.y, p.pos.z, BLOCK.AIR);
+          } else if (e.button === 2) {
+            // place on the face you aimed at
+            setBlock(p.place.x, p.place.y, p.place.z, CURRENT_BLOCK);
+          }
+        });
+
+      
+        const EPS = 0.001;
+        function eachCollidingBlock(pos, size, cb){
+          const half = size.clone().multiplyScalar(0.5);
+          const pMin = pos.clone().sub(half);
+          const pMax = pos.clone().add(half);
+          const minX=Math.floor(pMin.x), maxX=Math.floor(pMax.x);
+          const minY=Math.floor(pMin.y), maxY=Math.floor(pMax.y);
+          const minZ=Math.floor(pMin.z), maxZ=Math.floor(pMax.z);
+          for(let x=minX;x<=maxX;x++){
+            for(let y=minY;y<=maxY;y++){
+              for(let z=minZ;z<=maxZ;z++){
+                if(getBlock(x,y,z)!==BLOCK.AIR){
+                  cb(new THREE.Vector3(x,y,z), new THREE.Vector3(x+1,y+1,z+1));
+                }
+              }
             }
           }
         }
-      }
-    }
     function moveAndCollide(dtFactor){
       player.grounded=false;
 
