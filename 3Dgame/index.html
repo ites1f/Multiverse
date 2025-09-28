@@ -277,7 +277,13 @@
         e.preventDefault(); e.stopPropagation();
         return;
       }
-
+      if (e.key.toLowerCase() === "t") {
+        CHUNK_MAT = CHUNK_MAT.isMeshBasicMaterial
+          ? new THREE.MeshLambertMaterial({ map: atlas, fog:true })
+          : new THREE.MeshBasicMaterial({ map: atlas });
+        for (const [,ch] of (window.chunks ?? [])) if (ch.mesh) ch.mesh.material = CHUNK_MAT;
+        console.log("Now using", CHUNK_MAT.type);
+      }
       if (k==="1") CURRENT_BLOCK=BLOCK.STONE;
       if (k==="2") CURRENT_BLOCK=BLOCK.GRASS;
       if (k==="3") CURRENT_BLOCK=BLOCK.DIRT;
@@ -442,7 +448,7 @@
       if(c.mesh){
         scene.remove(c.mesh);
         c.mesh.geometry.dispose();
-        c.mesh.material.dispose?.();
+        //c.mesh.material.dispose?.();
         c.mesh = null;
       }
     
