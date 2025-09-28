@@ -27,8 +27,8 @@
 
     <hr>
     <b>Movement</b><br>
-    Gravity <input id="gSlider" type="range" min="-20" max="0" step="0.1" value="-10"> <span id="gVal"></span><br>
-    JumpVel <input id="jSlider" type="range" min="0" max="20" step="0.1" value="10"> <span id="jVal"></span><br>
+    Gravity <input id="gSlider" type="range" min="-20" max="0" step="0.1" value="-19"> <span id="gVal"></span><br>
+    JumpVel <input id="jSlider" type="range" min="0" max="20" step="0.1" value="6.7"> <span id="jVal"></span><br>
     WalkSpd <input id="wSlider" type="range" min="0" max="500" step="1" value="70"> <span id="wVal"></span><br>
     SprintSpd <input id="sSlider" type="range" min="0" max="700" step="1" value="100"> <span id="sVal"></span><br>
 
@@ -67,8 +67,8 @@
 
 
     // Physics (per-second)
-    let GRAVITY  = -15;  // was -0.027 * 60
-    let JUMP_VEL =  6;   // was  0.14  * 60
+    let GRAVITY  = -19;  // was -0.027 * 60
+    let JUMP_VEL =  6.7;   // was  0.14  * 60
 
     // Horizontal accel (per-second). With DRAG=6 these settle to ~a/DRAG speed.
     let WALK     = 70;     // -> ~4.5 units/s cruise (27 / 6)
