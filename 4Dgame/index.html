@@ -596,7 +596,7 @@
       for(let z=0;z<CHUNK.Z;z++){
         for(let x=0;x<CHUNK.X;x++){
           const wx=baseX+x, wz=baseZ+z;
-          const hRaw = FLAT_WORLD_Y ?? sampleTerrain4(wx,wz);
+          const hRaw = FLAT_WORLD_Y ?? sampleTerrain4(wx,wz,W);
           const h = Math.max(1, Math.min(CHUNK.Y - 2, hRaw));
           for(let y=0;y<CHUNK.Y;y++){
             let id=BLOCK.AIR;
