@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Web Voxel Prototype (Textured)</title>
+  <title>Web Voxel Prototype (Textured, No Sky)</title>
   <style>
     html, body { margin:0; height:100%; background:#0b1220; overflow:hidden; }
     #hud {
@@ -58,187 +58,142 @@
   </div>
 
   <div id="cross"></div>
-<script type="module">
-  import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-  import { Sky }   from "https://unpkg.com/three@0.160.0/examples/jsm/objects/Sky.js?module";
 
+  <script type="module">
+    import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 
-  /* ===== Tunables (sliders override) ===== */
-  let GRAVITY  = -0.008;
-  let JUMP_VEL =  0.14;
-  let WALK     =  0.006;
-  let SPRINT   =  0.009;
+    /* ===== Tunables (sliders override) ===== */
+    let GRAVITY  = -0.003;
+    let JUMP_VEL =  0.39;
+    let WALK     =  0.072;
+    let SPRINT   =  0.093;
 
-  // friction
-  let FRICTION_GROUND = 0.86;
-  let FRICTION_AIR    = 0.88;
+    // friction
+    let FRICTION_GROUND = 0.86;
+    let FRICTION_AIR    = 0.93;
 
-  // --- Biome & shape tuning ---
-  let BIOME_SCALE     = 0.0100;
-  let WARP_SCALE      = 0.012;
-  let WARP_STRENGTH   = 18.0;
+    // --- Biome & shape tuning ---
+    let BIOME_SCALE     = 0.0100;
+    let WARP_SCALE      = 0.012;
+    let WARP_STRENGTH   = 18.0;
 
-  // Plains
-  let PLAINS_BASE     = 33;
-  let PLAINS_WOBBLE   = 3.0;
+    // Plains
+    let PLAINS_BASE     = 33;
+    let PLAINS_WOBBLE   = 3.0;
 
-  // Hills
-  let HILLS_SCALE     = 0.015;
-  let HILLS_AMP       = 20;
+    // Hills
+    let HILLS_SCALE     = 0.015;
+    let HILLS_AMP       = 20;
 
-  // Mountains (ridged)
-  let MOUNT_SCALE     = 0.005;
-  let MOUNT_RIDGES    = 220;
+    // Mountains (ridged)
+    let MOUNT_SCALE     = 0.005;
+    let MOUNT_RIDGES    = 220;
 
-  // “Hilly patches”
-  let SPOT_SCALE      = 0.012;
-  let SPOT_THRESHOLD  = 0.55;
-  let SPOT_AMPLITUDE  = 30;
+    // “Hilly patches”
+    let SPOT_SCALE      = 0.012;
+    let SPOT_THRESHOLD  = 0.55;
+    let SPOT_AMPLITUDE  = 30;
 
-  // World management
-  let GRID_RADIUS = 6;
-  let BUILDS_PER_FRAME = 6;
+    // World management
+    let GRID_RADIUS = 6;
+    let BUILDS_PER_FRAME = 6;
 
-  // backup shaping (unused in terrain formula but kept for sliders)
-  let MASK_SCALE   = 0.001;
-  let HILL_SCALE   = 0.020;
-  let DETAIL_SCALE = 0.080;
-  let MOUNT_AMP    = 5;
+    // backup shaping (unused in terrain formula but kept for sliders)
+    let MASK_SCALE   = 0.001;
+    let HILL_SCALE   = 0.020;
+    let DETAIL_SCALE = 0.080;
+    let MOUNT_AMP    = 5;
 
-  /* ===== Config ===== */
-  const CHUNK = { X:16, Y:256, Z:16 };
-  const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4 };
-  let CURRENT_BLOCK = BLOCK.STONE;
-  /* ===== Scene ===== */
-  const scene = new THREE.Scene();
-  
-  const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000);
-  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" });
-  renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(devicePixelRatio);
-  if (renderer.outputColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace;
-  document.body.appendChild(renderer.domElement);
-  
-  // Match fog to a sky-like blue
-  scene.fog = new THREE.Fog(0x87CEEB, 80, 600);
-  
-  const sky = new Sky();
-  sky.scale.setScalar(450000);
-  scene.add(sky);
-  
-  const skyUniforms = sky.material.uniforms;
-  // Atmosphere preset
-  skyUniforms.turbidity.value = 10;
-  skyUniforms.rayleigh.value = 2;
-  skyUniforms.mieCoefficient.value = 0.005;
-  skyUniforms.mieDirectionalG.value = 0.8;
-  
-  // Sun position helper
-  const sun = new THREE.Vector3();
-  function setSun(elevationDeg = 45, azimuthDeg = 180) {
-    const phi = THREE.MathUtils.degToRad(90 - elevationDeg);
-    const theta = THREE.MathUtils.degToRad(azimuthDeg);
-    sun.setFromSphericalCoords(1, phi, theta);
-    skyUniforms.sunPosition.value.copy(sun);
-  }
-  setSun(45, 180); // midday
-  
-  // ===== Lights (names unique; declared once) =====
-  const hemiLight = new THREE.HemisphereLight(0xcfe8ff, 0x1a2438, 0.9);
-  scene.add(hemiLight);
-  
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-  dirLight.position.set(0.7, 1, 0.4);
-  scene.add(dirLight);
-  
-  // HUD info element
-  const info = document.getElementById("info");
+    /* ===== Config ===== */
+    const CHUNK = { X:16, Y:256, Z:16 };
+    const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4 };
+    let CURRENT_BLOCK = BLOCK.STONE;
 
-  /* ===== Texture atlas (PATCHED) =====
-     Put atlas.png in the SAME folder as index.html.
-     Prefer power-of-two size (e.g. 64x64, 128x128, 256x256).
-     Our UVs treat (0,0) as TOP-LEFT, so we disable flipY.
-  */
-  const atlas = new THREE.TextureLoader().load(
-    "atlas.png",
-    () => console.log("[atlas] loaded", atlas.image?.width, "x", atlas.image?.height),
-    undefined,
-    (err) => console.error("[atlas] FAILED to load", err)
-  );
+    /* ===== Scene ===== */
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000);
+    const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:"high-performance" });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(devicePixelRatio);
+    if (renderer.outputColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace;
+    document.body.appendChild(renderer.domElement);
 
-  // Critical for top-left UVs:
-  atlas.flipY = false;
-
-  // Pixel-art friendly filtering:
-  const isPOT = (n)=> (n & (n-1)) === 0;
-  const w = ()=> atlas.image?.width|0, h = ()=> atlas.image?.height|0;
-
-  atlas.magFilter = THREE.NearestFilter;
-  atlas.minFilter = (atlas.image && isPOT(w()) && isPOT(h()))
-    ? THREE.NearestMipMapNearestFilter
-    : THREE.NearestFilter;
-
-  atlas.wrapS = THREE.ClampToEdgeWrapping;
-  atlas.wrapT = THREE.ClampToEdgeWrapping;
-  if (atlas.colorSpace !== undefined) atlas.colorSpace = THREE.SRGBColorSpace;
-
-  // Start with unlit material to rule out lighting issues.
-  // You can toggle back to Lambert with "T".
-  let CHUNK_MAT = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-  // Later (after chunks exist), press "T" to toggle Basic <-> Lambert for debugging
-  let useBasic = true;
-  addEventListener("keydown", (e) => {
-    if (e.key.toLowerCase() === "t") {
-      useBasic = !useBasic;
-      const mat = useBasic
-        ? new THREE.MeshBasicMaterial({ map: atlas })
-        : new THREE.MeshLambertMaterial({ map: atlas, fog: true, alphaTest: 0.5, depthWrite: true });
-      // 'chunks' will be defined later in your file — this will work at runtime.
-      for (const [,ch] of (window.chunks ?? [])) if (ch.mesh) ch.mesh.material = mat;
-      CHUNK_MAT = mat; // so future meshes use the current material
-      console.log("[mat] now using", useBasic ? "MeshBasicMaterial" : "MeshLambertMaterial");
+    // Background gradient + fog (no Sky shader)
+    function makeSkyGradient(top="#87CEEB", bottom="#FFFFFF") {
+      const size = 512;
+      const canvas = document.createElement("canvas");
+      canvas.width = 1; canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      const grad = ctx.createLinearGradient(0,0,0,size);
+      grad.addColorStop(0, top);
+      grad.addColorStop(1, bottom);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,1,size);
+      return new THREE.CanvasTexture(canvas);
     }
-  });
+    scene.background = makeSkyGradient("#87CEEB", "#FFFFFF");
+    scene.fog = new THREE.Fog(0x87CEEB, 80, 600);
 
-  // If your atlas is a 4×4 tile grid (like the starter), set these:
-  const TILES_X = 4, TILES_Y = 4;
+    // Lights
+    scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x1a2438, 0.9));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+    dir.position.set(0.7,1,0.4); scene.add(dir);
 
-  // Small half-pixel inset to avoid bleeding between tiles
-  function tileUV(tx, ty){
-    const su = 1 / TILES_X, sv = 1 / TILES_Y;
-    const safeW = (atlas.image?.width  || 1024);
-    const safeH = (atlas.image?.height || 1024);
-    const insetU = 0.5 / safeW;
-    const insetV = 0.5 / safeH;
-    const u0 = tx*su + insetU, v0 = ty*sv + insetV;
-    const u1 = (tx+1)*su - insetU, v1 = (ty+1)*sv - insetV;
-    return { u0, v0, u1, v1 };
-  }
+    const info = document.getElementById("info");
 
-  // Pick the correct cells for your PNG.
-  // (Assuming row 0 has stone/grass/dirt/glass)
-  const UV_TILES = {
-    STONE:      tileUV(0,0),
-    GRASS_TOP:  tileUV(2,0),
-    GRASS_SIDE: tileUV(3,0),
-    DIRT:       tileUV(1,0),
-    GLASS:      tileUV(0,1) // <-- change if your glass is elsewhere
-  };
+    /* ===== Texture atlas =====
+       Put atlas.png in same folder. Assumed 16x16 tiles; change TILES if different.
+       Tile assignments:
+         stone: (0,0)
+         dirt:  (1,0)
+         grass: top(2,0) side(3,0) bottom(1,0)
+         glass: (0,1)  (adjust if yours is elsewhere)
+    */
+    const atlas = new THREE.TextureLoader().load("atlas.png",
+      () => console.log("[atlas] loaded", atlas.image?.width, "x", atlas.image?.height),
+      undefined,
+      (err) => console.error("[atlas] FAILED to load", err)
+    );
+    atlas.flipY = false;
+    atlas.magFilter = THREE.NearestFilter;
+    atlas.minFilter = THREE.NearestFilter; // simple & safe
+    atlas.wrapS = THREE.ClampToEdgeWrapping;
+    atlas.wrapT = THREE.ClampToEdgeWrapping;
+    if (atlas.colorSpace !== undefined) atlas.colorSpace = THREE.SRGBColorSpace;
 
-  // Map block → per-face tiles (grass uses top/side/bottom)
-  function uvFor(blockId, faceDir){
-    if (blockId === BLOCK.STONE) return UV_TILES.STONE;
-    if (blockId === BLOCK.DIRT)  return UV_TILES.DIRT;
-    if (blockId === BLOCK.GLASS) return UV_TILES.GLASS;
-    if (blockId === BLOCK.GRASS){
-      if (faceDir === 2) return UV_TILES.GRASS_TOP;  // +Y
-      if (faceDir === 3) return UV_TILES.DIRT;       // -Y
-      return UV_TILES.GRASS_SIDE;                    // sides
+    let CHUNK_MAT = new THREE.MeshBasicMaterial({ map: atlas }); // unlit for safety
+
+    // Tiles (4x4 atlas)
+    const TILES_X = 4, TILES_Y = 4;
+    function tileUV(tx, ty){
+      const su = 1 / TILES_X, sv = 1 / TILES_Y;
+      // tiny inset to avoid bleeding
+      const safeW = (atlas.image?.width  || 128);
+      const safeH = (atlas.image?.height || 128);
+      const insetU = 0.5 / safeW;
+      const insetV = 0.5 / safeH;
+      const u0 = tx*su + insetU, v0 = ty*sv + insetV;
+      const u1 = (tx+1)*su - insetU, v1 = (ty+1)*sv - insetV;
+      return { u0, v0, u1, v1 };
     }
-    return UV_TILES.STONE;
-  }
-
-  /* ===== keep the rest of YOUR original code below this line ===== */
+    const UV_TILES = {
+      STONE:      tileUV(0,0),
+      GRASS_TOP:  tileUV(2,0),
+      GRASS_SIDE: tileUV(3,0),
+      DIRT:       tileUV(1,0),
+      GLASS:      tileUV(0,1)
+    };
+    function uvFor(blockId, faceDir){
+      if (blockId === BLOCK.STONE) return UV_TILES.STONE;
+      if (blockId === BLOCK.DIRT)  return UV_TILES.DIRT;
+      if (blockId === BLOCK.GLASS) return UV_TILES.GLASS;
+      if (blockId === BLOCK.GRASS){
+        if (faceDir === 2) return UV_TILES.GRASS_TOP;  // +Y
+        if (faceDir === 3) return UV_TILES.DIRT;       // -Y
+        return UV_TILES.GRASS_SIDE;                    // sides
+      }
+      return UV_TILES.STONE;
+    }
 
     /* ===== Input ===== */
     const keys = new Set();
@@ -276,13 +231,7 @@
         e.preventDefault(); e.stopPropagation();
         return;
       }
-      if (e.key.toLowerCase() === "t") {
-        CHUNK_MAT = CHUNK_MAT.isMeshBasicMaterial
-          ? new THREE.MeshLambertMaterial({ map: atlas, fog:true })
-          : new THREE.MeshBasicMaterial({ map: atlas });
-        for (const [,ch] of (window.chunks ?? [])) if (ch.mesh) ch.mesh.material = CHUNK_MAT;
-        console.log("Now using", CHUNK_MAT.type);
-      }
+
       if (k==="1") CURRENT_BLOCK=BLOCK.STONE;
       if (k==="2") CURRENT_BLOCK=BLOCK.GRASS;
       if (k==="3") CURRENT_BLOCK=BLOCK.DIRT;
@@ -392,6 +341,7 @@
       }
     }
     const chunks = new Map();
+    window.chunks = chunks; // optional debug
     const buildQueue = [];
     const key = (cx,cz)=>`${cx},${cz}`;
     const idx = (x,y,z)=> x + CHUNK.X*(z + CHUNK.Z*y);
@@ -447,25 +397,21 @@
       if(c.mesh){
         scene.remove(c.mesh);
         c.mesh.geometry.dispose();
-        //c.mesh.material.dispose?.();
+        // DO NOT dispose shared material
+        // c.mesh.material.dispose?.();
         c.mesh = null;
       }
     
       const pos=[], norm=[], uv=[];
       const baseX=c.cx*CHUNK.X, baseZ=c.cz*CHUNK.Z;
     
-      // Push triangle with UVs (rect is {u0,v0,u1,v1})
       const pushTri=(a,b,cpt,n,rect)=>{
         pos.push(a.x,a.y,a.z, b.x,b.y,b.z, cpt.x,cpt.y,cpt.z);
         norm.push(n.x,n.y,n.z, n.x,n.y,n.z, n.x,n.y,n.z);
-        // CCW winding: map quad → two tris
-        // tri1 verts: a(0,0), b(1,0), c(1,1)
         uv.push(rect.u0,rect.v0,  rect.u1,rect.v0,  rect.u1,rect.v1);
       };
       const pushQuad=(p0,p1,p2,p3,n,rect)=>{
-        // tri 1: p0,p1,p2  | tri 2: p0,p2,p3
         pushTri(p0,p1,p2,n,rect);
-        // tri2 uses (0,0)->p0, (1,1)->p2, (0,1)->p3
         pos.push(p0.x,p0.y,p0.z, p2.x,p2.y,p2.z, p3.x,p3.y,p3.z);
         norm.push(n.x,n.y,n.z,   n.x,n.y,n.z,   n.x,n.y,n.z);
         uv.push(rect.u0,rect.v0, rect.u1,rect.v1, rect.u0,rect.v1);
@@ -475,42 +421,42 @@
         const bx=baseX+x, by=y, bz=baseZ+z;
         const rect = uvFor(blockId, dir);
         switch(dir){
-          case 0: // +X
+          case 0:
             pushQuad(
               new THREE.Vector3(bx+1,by,  bz),
               new THREE.Vector3(bx+1,by+1,bz),
               new THREE.Vector3(bx+1,by+1,bz+1),
               new THREE.Vector3(bx+1,by,  bz+1),
               new THREE.Vector3(1,0,0), rect); break;
-          case 1: // -X
+          case 1:
             pushQuad(
               new THREE.Vector3(bx,by,  bz+1),
               new THREE.Vector3(bx,by+1,bz+1),
               new THREE.Vector3(bx,by+1,bz),
               new THREE.Vector3(bx,by,  bz),
               new THREE.Vector3(-1,0,0), rect); break;
-          case 2: // +Y (top)
+          case 2:
             pushQuad(
               new THREE.Vector3(bx,  by+1,bz),
               new THREE.Vector3(bx,  by+1,bz+1),
               new THREE.Vector3(bx+1,by+1,bz+1),
               new THREE.Vector3(bx+1,by+1,bz),
               new THREE.Vector3(0,1,0), rect); break;
-          case 3: // -Y (bottom)
+          case 3:
             pushQuad(
               new THREE.Vector3(bx,  by,  bz+1),
               new THREE.Vector3(bx,  by,  bz),
               new THREE.Vector3(bx+1,by,  bz),
               new THREE.Vector3(bx+1,by,  bz+1),
               new THREE.Vector3(0,-1,0), rect); break;
-          case 4: // +Z
+          case 4:
             pushQuad(
               new THREE.Vector3(bx+1,by,  bz+1),
               new THREE.Vector3(bx+1,by+1,bz+1),
               new THREE.Vector3(bx,  by+1,bz+1),
               new THREE.Vector3(bx,  by,  bz+1),
               new THREE.Vector3(0,0,1), rect); break;
-          case 5: // -Z
+          case 5:
             pushQuad(
               new THREE.Vector3(bx,  by,  bz),
               new THREE.Vector3(bx,  by+1,bz),
@@ -574,7 +520,7 @@
     }
     function regenAll(){
       for(const [,ch] of chunks){
-        if(ch.mesh){ scene.remove(ch.mesh); ch.mesh.geometry.dispose(); ch.mesh.material && ch.mesh.material.dispose?.(); }
+        if(ch.mesh){ scene.remove(ch.mesh); ch.mesh.geometry.dispose(); /* keep material */ }
       }
       chunks.clear();
       buildQueue.length = 0;
