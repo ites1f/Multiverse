@@ -110,8 +110,13 @@
 
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:256, Z:16 };
-    const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4 };
+    const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4, LOG:5, LEAVES:6};
     let CURRENT_BLOCK = BLOCK.STONE;
+    const BLOCK_TRANSPARENT = {
+      [BLOCK.AIR]: true,
+      [BLOCK.LEAVES]: true,
+      [BLOCK.GLASS]: true,
+    };
 
     /* ===== Scene ===== */
     const scene = new THREE.Scene();
@@ -212,6 +217,44 @@
         a.min.z < b.max.z - eps && a.max.z > b.min.z + eps
       );
     }
+    function mulberry32(seed){
+      return function(){
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      }
+    }
+    function placeTree(vox, x, y, z, rng){
+      // trunk
+      const h = 4 + Math.floor(rng()*3); // 4..6
+      for (let i=0;i<h;i++){
+        vox.set(x, y+i, z, BLOCK.LOG);
+      }
+    
+      // leaves: a round-ish blob centered near top
+      const topY = y + h - 1;
+      const R = 2; // radius
+      for (let dx=-R; dx<=R; dx++){
+        for (let dy=-R; dy<=R; dy++){
+          for (let dz=-R; dz<=R; dz++){
+            const ax = x+dx, ay = topY+dy, az = z+dz;
+            const d2 = dx*dx + dy*dy + dz*dz;
+            // hollow out corners a bit so it looks nicer
+            if (d2 <= 3 + (rng()<0.2?0:1)) {
+              // don’t overwrite trunk
+              if (!(dx===0 && dz===0 && dy<=0 && dy>=-h)) {
+                // avoid replacing solid terrain (optional)
+                if (vox.get(ax,ay,az) === BLOCK.AIR) {
+                  vox.set(ax,ay,az, BLOCK.LEAVES);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
 
     function wouldCollideWithPlayer(x, y, z) {
       const pa = playerAABB();
@@ -284,7 +327,9 @@
       GRASS_TOP:  tileUV(2,0),
       GRASS_SIDE: tileUV(3,0),
       DIRT:       tileUV(1,0),
-      GLASS:      tileUV(0,1)
+      GLASS:      tileUV(0,1),
+      LOG:        tileUV(1,1),
+      LEAVES:     tileUV(2,1)
     };
     function uvFor(blockId, faceDir){
       if (blockId === BLOCK.STONE) return UV_TILES.STONE;
@@ -466,6 +511,8 @@
           }
         }
       }
+      // decorate this chunk with trees
+      decorateChunkTrees(c, 12345 /* world seed */, fbm2);
       c.generated=true;
       c.dirty=true;
       enqueueBuild(c);
@@ -491,6 +538,59 @@
       const nc=chunks.get(key(cx,cz));
       if(!nc||!nc.generated) return BLOCK.AIR;
       return nc.blocks[idx(nx,ny,nz)];
+    }
+// noise2D should be any coherent noise you already use (returns -1..1 or 0..1).
+// If you don't have one yet, you can map Math.random() with seeded RNG per chunk.
+    function decorateChunkTrees(chunk, worldSeed, noise2D){
+      const { cx, cz } = chunk; // chunk coords
+      const rng = mulberry32((worldSeed ^ (cx*73856093) ^ (cz*19349663)) >>> 0);
+    
+      const pad = 1; // keep leaves inside chunk
+      const sx = cx * CHUNK.X, sz = cz * CHUNK.Z;
+    
+      for (let lx = pad; lx < CHUNK.X - pad; lx++){
+        for (let lz = pad; lz < CHUNK.Z - pad; lz++){
+          // world coords
+          const wx = sx + lx, wz = sz + lz;
+        
+          // clustering: threshold by noise
+          const dens = (noise2D ? (noise2D(wx*0.02, wz*0.02)*0.5+0.5) : rng());
+          if (dens < 0.72) continue;              // tune density here
+          if (rng() > 0.20)   continue;           // sparse sampling
+        
+          // find ground top in this column inside the chunk
+          let yTop = -1;
+          for (let y = CHUNK.Y-2; y >= 1; y--){
+            const b = chunk.get(lx,y,lz);
+            if (b !== BLOCK.AIR){
+              yTop = y; break;
+            }
+          }
+          if (yTop < 0) continue;
+        
+          // must be grass surface with air above
+          if (chunk.get(lx,yTop,lz) !== BLOCK.GRASS) continue;
+          if (chunk.get(lx,yTop+1,lz) !== BLOCK.AIR) continue;
+        
+          // avoid steep cliffs (optional): sample neighbors
+          const n1 = columnTop(chunk, lx-1, lz);
+          const n2 = columnTop(chunk, lx+1, lz);
+          const n3 = columnTop(chunk, lx, lz-1);
+          const n4 = columnTop(chunk, lx, lz+1);
+          if (Math.max(n1,n2,n3,n4) - Math.min(n1,n2,n3,n4) > 2) continue;
+        
+          // place tree in world space using your world vox accessor
+          placeTree(worldVox, wx, yTop+1, wz, rng);
+        }
+      }
+    }
+
+    function columnTop(chunk, lx, lz){
+      if (lx<0||lx>=CHUNK.X||lz<0||lz>=CHUNK.Z) return -9999;
+      for (let y = CHUNK.Y-2; y>=1; y--){
+        if (chunk.get(lx,y,lz) !== BLOCK.AIR) return y;
+      }
+      return -9999;
     }
 
     function enqueueBuild(ch){ if (!buildQueue.includes(ch)) buildQueue.push(ch); }
