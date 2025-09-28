@@ -559,93 +559,84 @@
       if(!nc||!nc.generated) return BLOCK.AIR;
       return nc.blocks[idx(nx,ny,nz)];
     }
-// Biome-aware, defensive, local-only
+    // Biome-aware, defensive, local-only
+    // Biome-aware trees using fbm2 that returns 0..1
     function decorateChunkTrees(chunk, worldSeed, noise2D){
       const { cx, cz } = chunk;
       const wx0 = cx * CHUNK.X, wz0 = cz * CHUNK.Z;
     
-      // guard noise
-      const n2 = (typeof noise2D === "function")
-        ? noise2D
-        : ((x,z)=> 0); // flat fallback -> plains
-    
-      // --- biome mask (low freq) ---
-      const BIOME_SCALE = 0.004; // smaller => bigger regions
-      let bRaw = n2(wx0 * BIOME_SCALE, wz0 * BIOME_SCALE);
-      if (!Number.isFinite(bRaw)) bRaw = 0;
-      const biome = bRaw * 0.5 + 0.5; // 0..1
-    
-      // --- per-chunk RNG ---
+      // per-chunk RNG
       const rng = mulberry32((worldSeed ^ (cx*73856093) ^ (cz*19349663)) >>> 0);
     
-      // --- classify chunk ---
-      let maxTrees, sampleProb, densThresh;
+      // ---- 1) Biome mask (low frequency, big regions) ----
+      const BIOME_SCALE = 0.005;              // smaller => bigger regions
+      let biome01 = noise2D(wx0 * BIOME_SCALE, wz0 * BIOME_SCALE); // 0..1
+      if (!Number.isFinite(biome01)) biome01 = 0.5;
     
-      if (biome >= 0.55) { // FOREST
-        maxTrees   = 8 + Math.floor(biome * 6); // 8..14
-        sampleProb = 0.40;  // scan ~40% of columns
-        densThresh = 0.55;  // more permissive
-      } else if (biome <= 0.45) { // PLAINS
-        // gate ~1/4 of chunks to allow a single tree
-        const gate = ((((cx*9127) ^ (cz*23197) ^ worldSeed) & 3) === 0);
-        maxTrees   = gate ? 1 : 0;
-        sampleProb = gate ? 0.12 : 0.0;
-        densThresh = 0.82;
-      } else { // TRANSITION
-        maxTrees   = 3;
-        sampleProb = 0.22;
-        densThresh = 0.70;
+      // classify
+      let targetTrees;     // how many trees to try in this chunk
+      let densThreshold;   // column acceptance threshold (0..1)
+      let sampleProb;      // how many columns we even test
+    
+      if (biome01 > 0.62) {               // FOREST
+        targetTrees   = 10 + Math.floor(biome01 * 6); // 10..16
+        densThreshold = 0.45;                          // permissive
+        sampleProb    = 0.45;                          // scan many columns
+      } else if (biome01 < 0.38) {        // PLAINS
+        // ≈ 1 chunk out of 4 gets a single tree
+        const gate = (((cx*92837111) ^ (cz*689287499) ^ worldSeed) & 3) === 0;
+        targetTrees   = gate ? 1 : 0;
+        densThreshold = 0.85;
+        sampleProb    = gate ? 0.15 : 0.0;
+      } else {                            // TRANSITION
+        targetTrees   = 3;
+        densThreshold = 0.65;
+        sampleProb    = 0.25;
       }
+      if (targetTrees <= 0 || sampleProb <= 0) return;
     
-      if (maxTrees <= 0 || sampleProb <= 0) return;
-    
-      // --- scan inside chunk with padding to avoid leaf spill ---
+      // ---- 2) Scan positions strictly inside this chunk ----
       const pad = 2;
-      let made = 0;
+      let placed = 0;
     
-      // randomized start offsets to avoid grid feel
+      // slight random offsets to avoid grid look
       const sx = pad + Math.floor(rng()*3);
       const sz = pad + Math.floor(rng()*3);
     
-      // hard cap on work per chunk (watchdog)
-      let steps = 0, STEP_CAP = 2000;
-    
-      for (let lz = sz; lz < CHUNK.Z - pad && made < maxTrees; lz++){
-        for (let lx = sx; lx < CHUNK.X - pad && made < maxTrees; lx++){
-          if (++steps > STEP_CAP) return;         // watchdog exit
+      for (let lz = sz; lz < CHUNK.Z - pad && placed < targetTrees; lz++){
+        for (let lx = sx; lx < CHUNK.X - pad && placed < targetTrees; lx++){
           if (rng() > sampleProb) continue;
         
           const wx = wx0 + lx, wz = wz0 + lz;
         
-          // local density noise (higher freq than biome)
-          let dens = n2(wx * 0.02, wz * 0.02);
-          if (!Number.isFinite(dens)) dens = 0;
-          dens = dens * 0.5 + 0.5;                // 0..1
-          if (dens < densThresh) continue;
+          // local density noise (higher freq than biome), 0..1
+          let dens01 = noise2D(wx * 0.02, wz * 0.02);
+          if (!Number.isFinite(dens01)) dens01 = 0.5;
+          if (dens01 < densThreshold) continue;
         
-          // find column top
+          // find top
           let yTop = -1;
-          for (let y = CHUNK.Y - 2; y >= 1; y--){
+          for (let y = CHUNK.Y-2; y >= 1; y--){
             if (cGet(chunk, lx, y, lz) !== BLOCK.AIR){ yTop = y; break; }
           }
           if (yTop < 0) continue;
         
-          // require grass surface with air above
+          // must be grass surface with air above
           if (cGet(chunk, lx, yTop,   lz) !== BLOCK.GRASS) continue;
           if (cGet(chunk, lx, yTop+1, lz) !== BLOCK.AIR)   continue;
         
-          // gentle slope
+          // gentle slope check within this chunk
           const topIn = (qx,qz)=>{
             if (qx<0||qx>=CHUNK.X||qz<0||qz>=CHUNK.Z) return yTop;
             for (let yy=CHUNK.Y-2; yy>=1; yy--) if (cGet(chunk,qx,yy,qz)!==BLOCK.AIR) return yy;
             return yTop;
           };
-          const n1 = topIn(lx-1,lz), n2t = topIn(lx+1,lz), n3 = topIn(lx,lz-1), n4 = topIn(lx,lz+1);
-          if (Math.max(n1,n2t,n3,n4) - Math.min(n1,n2t,n3,n4) > 2) continue;
+          const a = topIn(lx-1,lz), b = topIn(lx+1,lz), c = topIn(lx,lz-1), d = topIn(lx,lz+1);
+          if (Math.max(a,b,c,d) - Math.min(a,b,c,d) > 2) continue;
         
-          // place strictly inside this chunk
+          // place tree (local-only; uses cSet/cGet)
           placeTreeLocal(chunk, lx, yTop+1, lz, rng);
-          made++;
+          placed++;
         }
       }
     }
