@@ -36,9 +36,10 @@
     <b>Render</b><br>
     RenderDist <input id="rSlider" type="range" min="0" max="10" step="1" value="6"> <span id="rVal"></span><br>
     Builds/frame <input id="bSlider" type="range" min="1" max="24" step="1" value="6"> <span id="bVal"></span><br>
-<!--
+
     <hr>
-    <b>Biome / Shape</b><br>
+    <b>4D</b><br>
+<!--
     BiomeScale <input id="biomeSlider" type="range" min="0.0005" max="0.02" step="0.0001" value="0.0100"> <span id="biomeVal"></span><br>
     WarpScale <input id="warpScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="warpScaleVal"></span><br>
     WarpStrength <input id="warpStrengthSlider" type="range" min="0" max="50" step="1" value="18"> <span id="warpStrengthVal"></span><br>
@@ -54,8 +55,9 @@
 
     SpotScale <input id="spotScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="spotScaleVal"></span><br>
     SpotThreshold <input id="spotThresholdSlider" type="range" min="0" max="1" step="0.01" value="0.55"> <span id="spotThresholdVal"></span><br>
-    SpotAmp <input id="spotAmpSlider" type="range" min="0" max="60" step="1" value="30"> <span id="spotAmpVal"></span><br>
   -->
+    SpotAmp <input id="spotAmpSlider" type="range" min="0" max="60" step="1" value="30"> <span id="spotAmpVal"></span><br>
+  
   </div>
 
   <div id="cross"></div>
@@ -422,8 +424,9 @@
     bind("wSlider",   v => WALK=v);
     bind("sSlider",   v => SPRINT=v);
     bind("rSlider",   v => { GRID_RADIUS = v|0; scheduleGridRefresh(); }, v=>v|0);
-    /*
+  
     bind("bSlider",   v => { BUILDS_PER_FRAME = v|0; }, v=>v|0);
+  /*
     bind("biomeSlider",     v => { BIOME_SCALE = v; }, v=> (+v).toFixed(4));
     bind("warpScaleSlider", v => { WARP_SCALE = v; }, v=> (+v).toFixed(3));
     bind("warpStrengthSlider", v => { WARP_STRENGTH = v; }, v=> v|0);
@@ -435,6 +438,7 @@
     bind("mountRidgesSlider", v => { MOUNT_RIDGES = v; }, v=> v|0);
     bind("spotScaleSlider",     v => { SPOT_SCALE = v; }, v=> (+v).toFixed(3));
     bind("spotThresholdSlider", v => { SPOT_THRESHOLD = v; }, v=> (+v).toFixed(2));
+    */
     bind("spotAmpSlider",       v => { SPOT_AMPLITUDE = v; }, v=> v|0);
 
     /* ===== Noise ===== */
