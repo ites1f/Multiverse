@@ -1435,12 +1435,55 @@
     }
 
     function scheduleFriction(dt){
-      const DRAG = 18;                 // per-second drag (tweak 5–8)
+      const DRAG = 16;                 // per-second drag (tweak 5–8)
       const f = Math.exp(-DRAG * dt); // exponential decay
       player.vel.x *= f;
       player.vel.z *= f;
     }
 
+
+    function solidAt(wx, wy, wz){
+      const id = getBlock(Math.floor(wx), Math.floor(wy), Math.floor(wz));
+      const def = BLOCK_BY_ID?.[id];
+      return !!def && !!def.solid;
+    }
+
+    /* Check if there’s floor under the player AABB corners at (x,z). */
+    function hasSupportAtXZ(x, z){
+      // sample slightly below feet
+      const yBelow = Math.floor(player.pos.y - 0.05) - 1;
+      const halfX = player.size.x * 0.5 - 0.01;
+      const halfZ = player.size.z * 0.5 - 0.01;
+      return (
+        solidAt(x - halfX, yBelow, z - halfZ) ||
+        solidAt(x + halfX, yBelow, z - halfZ) ||
+        solidAt(x - halfX, yBelow, z + halfZ) ||
+        solidAt(x + halfX, yBelow, z + halfZ)
+      );
+    }
+
+    /* When crouching on ground, prevent stepping off unsupported edges. */
+    function sneakEdgeClamp(dt){
+      if (!keys.has("shift") || !player.grounded) return;
+    
+      // Predict horizontal step this frame
+      const dx = player.vel.x * dt;
+      const dz = player.vel.z * dt;
+    
+      // Axis-wise clamp: try X, then Z
+      if (dx !== 0){
+        const nx = player.pos.x + dx;
+        if (!hasSupportAtXZ(nx, player.pos.z)){
+          player.vel.x = 0; // block stepping off in X
+        }
+      }
+      if (dz !== 0){
+        const nz = player.pos.z + dz;
+        if (!hasSupportAtXZ(player.pos.x, nz)){
+          player.vel.z = 0; // block stepping off in Z
+        }
+      }
+    }
 
     /* ===== Startup & Loop ===== */
     regenAll();
@@ -1472,6 +1515,7 @@
       // physics
       player.vel.y += GRAVITY * dt;
       updateSun(dt);
+      sneakEdgeClamp(dt);
       moveAndCollide(dt);
       scheduleFriction(dt);
     
