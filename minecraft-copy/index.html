@@ -1447,42 +1447,44 @@
       const def = BLOCK_BY_ID?.[id];
       return !!def && !!def.solid;
     }
-
-    /* Check if there’s floor under the player AABB corners at (x,z). */
-    function hasSupportAtXZ(x, z){
-      // sample slightly below feet
-      const yBelow = Math.floor(player.pos.y - 0.05) - 1;
-      const halfX = player.size.x * 0.5 - 0.01;
-      const halfZ = player.size.z * 0.5 - 0.01;
+    
+    function hasSupportAt(x, z, feetY){
+      // check one block below feet at all four corners
+      const yBelow = feetY - 1;
+      const pad = 0.05;                          // margin so corners don’t “float”
+      const hx = player.size.x * 0.5 - pad;
+      const hz = player.size.z * 0.5 - pad;
       return (
-        solidAt(x - halfX, yBelow, z - halfZ) ||
-        solidAt(x + halfX, yBelow, z - halfZ) ||
-        solidAt(x - halfX, yBelow, z + halfZ) ||
-        solidAt(x + halfX, yBelow, z + halfZ)
+        solidAt(x - hx, yBelow, z - hz) ||
+        solidAt(x + hx, yBelow, z - hz) ||
+        solidAt(x - hx, yBelow, z + hz) ||
+        solidAt(x + hx, yBelow, z + hz)
       );
     }
-
-    /* When crouching on ground, prevent stepping off unsupported edges. */
+    
+    /* Prevent walking off edges only when crouching (Shift) */
     function sneakEdgeClamp(dt){
       if (!keys.has("shift") || !player.grounded) return;
     
-      // Predict horizontal step this frame
-      const dx = player.vel.x * dt;
-      const dz = player.vel.z * dt;
+      // feet level = just below player’s pos (don’t subtract 1 twice!)
+      const feetY = Math.floor(player.pos.y - 0.1);
     
-      // Axis-wise clamp: try X, then Z
-      if (dx !== 0){
-        const nx = player.pos.x + dx;
-        if (!hasSupportAtXZ(nx, player.pos.z)){
-          player.vel.x = 0; // block stepping off in X
-        }
+      const curSupported = hasSupportAt(player.pos.x, player.pos.z, feetY);
+      if (!curSupported){
+        // already at edge/over air: stop horizontal motion
+        player.vel.x = 0;
+        player.vel.z = 0;
+        return;
       }
-      if (dz !== 0){
-        const nz = player.pos.z + dz;
-        if (!hasSupportAtXZ(player.pos.x, nz)){
-          player.vel.z = 0; // block stepping off in Z
-        }
-      }
+    
+      // Predict next X and Z separately so you can slide along the edge
+      const nextX = player.pos.x + player.vel.x * dt;
+      const nextZ = player.pos.z + player.vel.z * dt;
+    
+      // If stepping in X would lose support, zero X but keep Z (so you can strafe)
+      if (!hasSupportAt(nextX, player.pos.z, feetY)) player.vel.x = 0;
+      // If stepping in Z would lose support, zero Z but keep X
+      if (!hasSupportAt(player.pos.x, nextZ, feetY)) player.vel.z = 0;
     }
 
     /* ===== Startup & Loop ===== */
