@@ -231,18 +231,20 @@
     };
     CURRENT_BLOCK = INV.slots[INV.sel].id;
     // --- Inventory consume helper (kept OFF by default) ---
-    const CONSUME = false; // set to true if you want items to decrease when placing
-      
+    const CONSUME = true; // set to true if you want items to decrease when placing
+
     function tryConsumeSelected(){
-      if (!CONSUME) return true;                 // default: don't block placement
+      if (!CONSUME) return true;  // skip if consuming is disabled
       const s = INV.slots[INV.sel];
-      if (!s || s.count <= 0) return false;      // nothing to place
-      s.count--;                                  // consume one
-      // update count label for current slot
+      if (!s || s.count <= 0) return false;      // nothing left to place
+      s.count--;                                 // consume one
+    
+      // Update the number label in the hotbar UI
       const lbl = document.querySelectorAll("#hotbarSlots .hotCount")[INV.sel];
-      if (lbl) lbl.textContent = s.count > 1 ? String(s.count) : "";
+      if (lbl) lbl.textContent = (s.count > 1) ? String(s.count) : "";
       return true;
     }
+
 
     /* Tell CSS how many tiles across the atlas has (matches your code’s TILES_X/Y) */
     document.documentElement.style.setProperty("--tiles-x", 4);
@@ -1217,11 +1219,9 @@
             setBlock(p.pos.x, p.pos.y, p.pos.z, BLOCK.AIR);
           
           } else if (e.button === 2) {
-            // place on the face you aimed at — but never inside player
             const tx = p.place.x, ty = p.place.y, tz = p.place.z;
             if (wouldCollideWithPlayer(tx, ty, tz)) return;
           
-            // INVENTORY: consume from selected slot before placing
             if (tryConsumeSelected()) {
               setBlock(tx, ty, tz, CURRENT_BLOCK);
             } else {
