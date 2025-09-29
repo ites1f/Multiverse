@@ -430,6 +430,29 @@
       CURRENT_BLOCK = INV.slots[INV.sel].id;
       moveSelector(INV.sel);
     }
+    // Hide F3 HUD on boot
+    addEventListener("DOMContentLoaded", ()=>{
+      const hud = document.getElementById("hud");
+      if (hud) hud.style.display = "none";
+    });
+    addEventListener("DOMContentLoaded", ()=>{
+      const box = document.getElementById("betterFps");
+      if (box){
+        box.checked = true;           // show it as enabled
+        applyBetterFps(true);         // actually apply the preset
+      }
+    });
+    
+    // Toggle with F3
+    addEventListener("keydown", (e)=>{
+      if (e.key === "F3"){
+        const hud = document.getElementById("hud");
+        if (hud){
+          hud.style.display = (hud.style.display === "none" ? "block" : "none");
+          e.preventDefault();
+        }
+      }
+    });
 
     /* Input: 1..9 keys and mouse wheel */
     addEventListener("keydown", (e)=>{
