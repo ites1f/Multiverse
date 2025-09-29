@@ -315,9 +315,9 @@
       return [{ id: d, count: 1 }];
     }
 
-    /* break & collect: replaces the block with AIR and puts drops into inventory */
     function breakBlockAt(wx,wy,wz){
       const bid = getBlock(wx,wy,wz);
+      console.log("Breaking", wx,wy,wz, "blockId:", bid);
       const def = BLOCK_BY_ID?.[bid];
       if (bid === BLOCK.AIR || (def && def.break === false)) return;
     
@@ -325,11 +325,7 @@
       setBlock(wx,wy,wz,BLOCK.AIR);
     
       for (const drop of drops){
-        const leftover = invAdd(drop.id, drop.count);
-        if (leftover > 0){
-          // inventory full; you can spawn a world item entity here later
-          // console.warn("Inventory full, leftover:", leftover);
-        }
+        invAdd(drop.id, drop.count);
       }
     }
 
