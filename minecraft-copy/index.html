@@ -1443,49 +1443,54 @@
 
 
     function solidAt(wx, wy, wz){
-      const id = getBlock(Math.floor(wx), Math.floor(wy), Math.floor(wz));
-      const def = BLOCK_BY_ID?.[id];
-      return !!def && !!def.solid;
+      return BLOCK_BY_ID?.[ getBlock(Math.floor(wx), Math.floor(wy), Math.floor(wz)) ]?.solid ?? false;
     }
     
-    function hasSupportAt(x, z, feetY){
-      // check one block below feet at all four corners
-      const yBelow = feetY - 1;
-      const pad = 0.05;                          // margin so corners don’t “float”
+    /* Cheap first-pass check: only look straight below center.
+       If there IS support, we skip expensive corner checks entirely. */
+    function centerSupported(feetY){
+      return solidAt(player.pos.x, feetY - 1, player.pos.z);
+    }
+    
+    /* Fallback: check four corners only when center has no support */
+    function cornersSupported(x, z, feetY){
+      const pad = 0.06; // tiny margin inside AABB
       const hx = player.size.x * 0.5 - pad;
       const hz = player.size.z * 0.5 - pad;
+      const y  = feetY - 1;
       return (
-        solidAt(x - hx, yBelow, z - hz) ||
-        solidAt(x + hx, yBelow, z - hz) ||
-        solidAt(x - hx, yBelow, z + hz) ||
-        solidAt(x + hx, yBelow, z + hz)
+        solidAt(x - hx, y, z - hz) ||
+        solidAt(x + hx, y, z - hz) ||
+        solidAt(x - hx, y, z + hz) ||
+        solidAt(x + hx, y, z + hz)
       );
     }
     
-    /* Prevent walking off edges only when crouching (Shift) */
+    /* Optimized: runs only if moving, and bails early on solid center.
+       Prevents stepping OFF edges while crouching, but still lets you slide along. */
     function sneakEdgeClamp(dt){
       if (!keys.has("shift") || !player.grounded) return;
     
-      // feet level = just below player’s pos (don’t subtract 1 twice!)
+      // Not moving? Don’t do anything.
+      const vx = player.vel.x, vz = player.vel.z;
+      if ((vx*vx + vz*vz) < 1e-6) return;
+    
       const feetY = Math.floor(player.pos.y - 0.1);
     
-      const curSupported = hasSupportAt(player.pos.x, player.pos.z, feetY);
-      if (!curSupported){
-        // already at edge/over air: stop horizontal motion
-        player.vel.x = 0;
-        player.vel.z = 0;
-        return;
-      }
+      // If center has support, allow motion (cheap path).
+      if (centerSupported(feetY)) return;
     
-      // Predict next X and Z separately so you can slide along the edge
-      const nextX = player.pos.x + player.vel.x * dt;
-      const nextZ = player.pos.z + player.vel.z * dt;
+      // Only now do the (still cheap) axis checks
+      const nx = player.pos.x + vx * dt;
+      const nz = player.pos.z + vz * dt;
     
-      // If stepping in X would lose support, zero X but keep Z (so you can strafe)
-      if (!hasSupportAt(nextX, player.pos.z, feetY)) player.vel.x = 0;
-      // If stepping in Z would lose support, zero Z but keep X
-      if (!hasSupportAt(player.pos.x, nextZ, feetY)) player.vel.z = 0;
+      // If moving in X would lose corner support, zero X (keep Z so you can slide)
+      if (!cornersSupported(nx, player.pos.z, feetY)) player.vel.x = 0;
+    
+      // If moving in Z would lose corner support, zero Z (keep X so you can slide)
+      if (!cornersSupported(player.pos.x, nz, feetY)) player.vel.z = 0;
     }
+
 
     /* ===== Startup & Loop ===== */
     regenAll();
