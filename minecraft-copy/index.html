@@ -184,6 +184,8 @@
     let DETAIL_SCALE = 0.080;
     let MOUNT_AMP    = 5;
 
+    const REACH_DISTANCE = 6;
+
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:256, Z:16 };
     const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4, LOG:5, LEAVES:6};
@@ -1297,7 +1299,7 @@
 
         addEventListener("mousedown", (e) => {
           if (!pointerLocked) return;
-          const p = pick(10);
+          const p = pick(REACH_DISTANCE);
           if (!p.hit) return;
         
           if (e.button === 0) {
