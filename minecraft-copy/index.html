@@ -602,57 +602,11 @@
       c.blocks[cIdx(x,y,z)] = v;
     }
     
-    function placeTree(vox, x, y, z, rng){
-      // trunk
-      const h = 4 + Math.floor(rng()*3); // 4..6
-      for (let i=0;i<h;i++){
-        vox.set(x, y+i, z, BLOCK.LOG);
-      }
-    
-      // leaves: a round-ish blob centered near top
-      const topY = y + h - 1;
-      const R = 2; // radius
-      for (let dx=-R; dx<=R; dx++){
-        for (let dy=-R; dy<=R; dy++){
-          for (let dz=-R; dz<=R; dz++){
-            const ax = x+dx, ay = topY+dy, az = z+dz;
-            const d2 = dx*dx + dy*dy + dz*dz;
-            // hollow out corners a bit so it looks nicer
-            if (d2 <= 3 + (rng()<0.2?0:1)) {
-              // don’t overwrite trunk
-              if (!(dx===0 && dz===0 && dy<=0 && dy>=-h)) {
-                // avoid replacing solid terrain (optional)
-                if (vox.get(ax,ay,az) === BLOCK.AIR) {
-                  vox.set(ax,ay,az, BLOCK.LEAVES);
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-
     function wouldCollideWithPlayer(x, y, z) {
       const pa = playerAABB();
       const ba = blockAABB(x, y, z);
       return aabbOverlap(pa, ba, EPS_PLACEMENT);
     }
-
-    // Background gradient + fog (no Sky shader)
-    function makeSkyGradient(top="#87CEEB", bottom="#FFFFFF") {
-      const size = 512;
-      const canvas = document.createElement("canvas");
-      canvas.width = 1; canvas.height = size;
-      const ctx = canvas.getContext("2d");
-      const grad = ctx.createLinearGradient(0,0,0,size);
-      grad.addColorStop(0, top);
-      grad.addColorStop(1, bottom);
-      ctx.fillStyle = grad;
-      ctx.fillRect(0,0,1,size);
-      return new THREE.CanvasTexture(canvas);
-    }
-    //scene.background = makeSkyGradient("#87CEEB", "#FFFFFF");
     scene.fog = new THREE.Fog(0x87CEEB, 80, 600);
 
     // Lights
@@ -1090,14 +1044,6 @@
       }
     }
 
-    function columnTop(chunk, lx, lz){
-      if (lx<0||lx>=CHUNK.X||lz<0||lz>=CHUNK.Z) return -9999;
-      for (let y = CHUNK.Y-2; y>=1; y--){
-        if (chunk.get(lx,y,lz) !== BLOCK.AIR) return y;
-      }
-      return -9999;
-    }
-
     function enqueueBuild(ch){ if (!buildQueue.includes(ch)) buildQueue.push(ch); }
     function buildMesh(c){
       if (!c.dirty) return;
@@ -1441,60 +1387,12 @@
       player.vel.z *= f;
     }
 
-
-    function solidAt(wx, wy, wz){
-      return BLOCK_BY_ID?.[ getBlock(Math.floor(wx), Math.floor(wy), Math.floor(wz)) ]?.solid ?? false;
-    }
-    
-    /* Cheap first-pass check: only look straight below center.
-       If there IS support, we skip expensive corner checks entirely. */
-    function centerSupported(feetY){
-      return solidAt(player.pos.x, feetY - 1, player.pos.z);
-    }
-    
-    /* Fallback: check four corners only when center has no support */
-    function cornersSupported(x, z, feetY){
-      const pad = 0.06; // tiny margin inside AABB
-      const hx = player.size.x * 0.5 - pad;
-      const hz = player.size.z * 0.5 - pad;
-      const y  = feetY - 1;
-      return (
-        solidAt(x - hx, y, z - hz) ||
-        solidAt(x + hx, y, z - hz) ||
-        solidAt(x - hx, y, z + hz) ||
-        solidAt(x + hx, y, z + hz)
-      );
-    }
-    /* Optimized: runs only if moving, and bails early on solid center.
-       Prevents stepping OFF edges while crouching, but still lets you slide along. */
-    function sneakEdgeClamp(dt){
-      if (!keys.has("shift") || !player.grounded) return;
-    
-      // Not moving? Don’t do anything.
-      const vx = player.vel.x, vz = player.vel.z;
-      if ((vx*vx + vz*vz) < 1e-6) return;
-    
-      const feetY = Math.floor(player.pos.y - 0.1);
-    
-      // If center has support, allow motion (cheap path).
-      if (centerSupported(feetY)) return;
-    
-      // Only now do the (still cheap) axis checks
-      const nx = player.pos.x + vx * dt;
-      const nz = player.pos.z + vz * dt;
-    
-      // If moving in X would lose corner support, zero X (keep Z so you can slide)
-      if (!cornersSupported(nx, player.pos.z, feetY)) player.vel.x = 0;
-    
-      // If moving in Z would lose corner support, zero Z (keep X so you can slide)
-      if (!cornersSupported(player.pos.x, nz, feetY)) player.vel.z = 0;
-    }
-
     // ---- Solidity helpers (no BLOCK_BY_ID required) ----
     const SOLID_SET = new Set([
       BLOCK.STONE, BLOCK.DIRT, BLOCK.GRASS, BLOCK.GLASS,
-      BLOCK.LOG, BLOCK.LEAVES, BLOCK.SAND, BLOCK.BEDROCK
+      BLOCK.LOG, BLOCK.LEAVES
     ]);
+
     function isSolid(id){ return SOLID_SET.has(id); }
 
     // Safe block read that never triggers gen
