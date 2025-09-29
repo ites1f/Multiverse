@@ -244,6 +244,92 @@
       if (lbl) lbl.textContent = (s.count > 1) ? String(s.count) : "";
       return true;
     }
+    /* ===== Inventory: real drops & stacking ===== */
+    const MAX_STACK = 64;
+
+    /* ensure 9 slots always exist */
+    for (let i=0; i<9; i++){
+      if (!INV.slots[i]) INV.slots[i] = { id: null, count: 0 };
+    }
+
+    /* update a single slot's count label fast */
+    function updateHotbarSlotUI(i){
+      const label = document.querySelectorAll("#hotbarSlots .hotCount")[i];
+      const s = INV.slots[i];
+      if (!label || !s) return;
+      label.textContent = (s.count > 1) ? String(s.count) : "";
+    }
+
+    /* add items into inventory (merge then fill). Returns leftover count (0 if all added). */
+    function invAdd(itemId, count){
+      if (!itemId || count <= 0) return 0;
+    
+      // 1) merge into partial stacks
+      for (let i=0; i<INV.slots.length && count>0; i++){
+        const s = INV.slots[i];
+        if (s.id === itemId && s.count < MAX_STACK){
+          const space = MAX_STACK - s.count;
+          const add = Math.min(space, count);
+          s.count += add;
+          count -= add;
+          updateHotbarSlotUI(i);
+        }
+      }
+      // 2) fill empty slots
+      for (let i=0; i<INV.slots.length && count>0; i++){
+        const s = INV.slots[i];
+        if (s.id == null || s.count === 0){
+          const add = Math.min(MAX_STACK, count);
+          s.id = itemId; s.count = add;
+          count -= add;
+          // also update the icon if this slot was empty before
+          const icon = document.querySelectorAll("#hotbarSlots .hotIcon")[i];
+          if (icon){
+            const {tx,ty} = iconTileFor(itemId);
+            const uStep = 100 / (4-1), vStep = 100 / (4-1); // TILES_X/Y assumed 4
+            icon.style.backgroundPosition = `${tx*uStep}% ${ty*vStep}%`;
+          }
+          updateHotbarSlotUI(i);
+        }
+      }
+      return count; // leftover (if >0, inventory full)
+    }
+
+    /* drop table (what a block gives when broken) */
+    const DROPS = {
+      [BLOCK.STONE]:  BLOCK.STONE,   // (You can switch to COBBLE if you add it)
+      [BLOCK.DIRT]:   BLOCK.DIRT,
+      [BLOCK.GRASS]:  BLOCK.DIRT,    // like MC (no Silk Touch)
+      [BLOCK.GLASS]:  null,          // no drop
+      [BLOCK.LOG]:    BLOCK.LOG,
+      [BLOCK.LEAVES]: null,          // later: chance to drop sapling
+      [BLOCK.SAND]:   BLOCK.SAND,
+      [BLOCK.WATER]:  null,
+      [BLOCK.BEDROCK]:null,
+    };
+    function getDrops(blockId){
+      const d = DROPS[blockId];
+      if (d == null) return [];
+      return [{ id: d, count: 1 }];
+    }
+
+    /* break & collect: replaces the block with AIR and puts drops into inventory */
+    function breakBlockAt(wx,wy,wz){
+      const bid = getBlock(wx,wy,wz);
+      const def = BLOCK_BY_ID?.[bid];
+      if (bid === BLOCK.AIR || (def && def.break === false)) return;
+    
+      const drops = getDrops(bid);
+      setBlock(wx,wy,wz,BLOCK.AIR);
+    
+      for (const drop of drops){
+        const leftover = invAdd(drop.id, drop.count);
+        if (leftover > 0){
+          // inventory full; you can spawn a world item entity here later
+          // console.warn("Inventory full, leftover:", leftover);
+        }
+      }
+    }
 
 
     /* Tell CSS how many tiles across the atlas has (matches your code’s TILES_X/Y) */
@@ -1135,7 +1221,7 @@
     };
     function eyePos(){ return player.pos.clone().add(new THREE.Vector3(0, player.size.y*0.75, 0)); }
     // Precise voxel raycast (Amanatides & Woo)
-    function pick(maxDist = 4) {
+    function pick(maxDist = 8) {
       const origin = eyePos();
       const dir = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, "YXZ"));
       if (dir.lengthSq() === 0) return { hit:false };
@@ -1215,9 +1301,7 @@
           if (!p.hit) return;
         
           if (e.button === 0) {
-            // break the hit block (unchanged for step 1)
-            setBlock(p.pos.x, p.pos.y, p.pos.z, BLOCK.AIR);
-          
+            breakBlockAt(p.pos.x, p.pos.y, p.pos.z);
           } else if (e.button === 2) {
             const tx = p.place.x, ty = p.place.y, tz = p.place.z;
             if (wouldCollideWithPlayer(tx, ty, tz)) return;
