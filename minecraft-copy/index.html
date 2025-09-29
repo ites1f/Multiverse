@@ -22,7 +22,7 @@
       position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
       width: 364px; height: 64px; pointer-events: none; 
     }
-    
+
     #hotbarBG {
       position: absolute; left: 50%; top: 50%;
       transform: translate(-50%,-50%);
@@ -31,7 +31,7 @@
       opacity: 0.98;
       z-index: 0;
     }
-    
+
     /* exact inner area: 9*36 + 8*4 = 356px wide, 36px tall */
     #hotbarSlots {
       position: absolute; left: 50%; top: 50%;
@@ -42,14 +42,14 @@
       width: 356px; height: 36px;
       z-index: 1;
     }
-    
+
     .hotSlot {
       position: relative;
       width: 36px; height: 36px;
       display: grid; place-items: center;
       pointer-events: none;
     }
-    
+
     .hotIcon {
       width: 28px; height: 28px;
       image-rendering: pixelated;
@@ -57,7 +57,7 @@
       background-repeat: no-repeat;
       background-size: calc(var(--tiles-x,4) * 100%) calc(var(--tiles-y,4) * 100%);
     }
-    
+
     .hotCount {
       position: absolute; right: 2px; bottom: 0;
       font: 11px ui-monospace, Consolas, monospace;
@@ -65,7 +65,7 @@
       opacity: 0.95;
       z-index: 2;
     }
-    
+
     #hotbarSel {
       position: absolute; top: 50%; left: 50%;
       transform: translate(-50%,-50%);
@@ -230,6 +230,19 @@
       sel: 0
     };
     CURRENT_BLOCK = INV.slots[INV.sel].id;
+    // --- Inventory consume helper (kept OFF by default) ---
+    const CONSUME = false; // set to true if you want items to decrease when placing
+      
+    function tryConsumeSelected(){
+      if (!CONSUME) return true;                 // default: don't block placement
+      const s = INV.slots[INV.sel];
+      if (!s || s.count <= 0) return false;      // nothing to place
+      s.count--;                                  // consume one
+      // update count label for current slot
+      const lbl = document.querySelectorAll("#hotbarSlots .hotCount")[INV.sel];
+      if (lbl) lbl.textContent = s.count > 1 ? String(s.count) : "";
+      return true;
+    }
 
     /* Tell CSS how many tiles across the atlas has (matches your code’s TILES_X/Y) */
     document.documentElement.style.setProperty("--tiles-x", 4);
@@ -654,13 +667,6 @@
         e.preventDefault(); e.stopPropagation();
         return;
       }
-
-      if (k==="1") CURRENT_BLOCK=BLOCK.STONE;
-      if (k==="2") CURRENT_BLOCK=BLOCK.GRASS;
-      if (k==="3") CURRENT_BLOCK=BLOCK.DIRT;
-      if (k==="4") CURRENT_BLOCK=BLOCK.GLASS;
-      if (k==="5") CURRENT_BLOCK=BLOCK.LOG;
-      if (k==="6") CURRENT_BLOCK=BLOCK.LEAVES;
       if (k==="r") regenAll();
     });
     addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
