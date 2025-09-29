@@ -175,8 +175,8 @@
     let SPOT_AMPLITUDE  = 30;
 
     // World management
-    let GRID_RADIUS = 8;
-    let BUILDS_PER_FRAME = 8;
+    let GRID_RADIUS = 4;
+    let BUILDS_PER_FRAME = 12;
 
     // backup shaping (unused in terrain formula but kept for sliders)
     let MASK_SCALE   = 0.001;
@@ -1135,7 +1135,7 @@
     };
     function eyePos(){ return player.pos.clone().add(new THREE.Vector3(0, player.size.y*0.75, 0)); }
     // Precise voxel raycast (Amanatides & Woo)
-    function pick(maxDist = 8) {
+    function pick(maxDist = 4) {
       const origin = eyePos();
       const dir = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, "YXZ"));
       if (dir.lengthSq() === 0) return { hit:false };
