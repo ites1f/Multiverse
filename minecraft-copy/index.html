@@ -1464,7 +1464,7 @@
         solidAt(x - hx, y, z + hz) ||
         solidAt(x + hx, y, z + hz)
       );
-
+    }
     /* Optimized: runs only if moving, and bails early on solid center.
        Prevents stepping OFF edges while crouching, but still lets you slide along. */
     function sneakEdgeClamp(dt){
