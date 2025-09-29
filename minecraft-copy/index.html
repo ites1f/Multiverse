@@ -183,6 +183,15 @@
     let HILL_SCALE   = 0.020;
     let DETAIL_SCALE = 0.080;
     let MOUNT_AMP    = 5;
+    
+    /* ===== Movement tuning ===== */
+    let BASE_SPEED    = 7.0;  // blocks/sec (set to your normal walk speed)
+    let RUN_MULT      = 1.6;  // sprint factor (Z)
+    let CROUCH_MULT   = 0.5;  // crouch factor (Shift)
+    let EYE_BASE      = 1.62; // normal eye height
+    let EYE_CROUCH    = 1.32; // crouched eye height
+    let isRun = false, isCrouch = false;
+    let eyeY = EYE_BASE; // smoothed eye height
 
     const REACH_DISTANCE = 6;
 
@@ -442,7 +451,7 @@
         applyBetterFps(true);         // actually apply the preset
       }
     });
-    
+
     // Toggle with F3
     addEventListener("keydown", (e)=>{
       if (e.key === "F3"){
@@ -766,6 +775,14 @@
     let pointerLocked = false;
     let yaw = 0, pitch = 0;
     let hudVisible = true;
+    addEventListener("keydown", (e)=>{
+      if (e.key === "Shift") isCrouch = true;
+      if (e.key.toLowerCase() === "z") isRun = true;
+    });
+    addEventListener("keyup", (e)=>{
+      if (e.key === "Shift") isCrouch = false;
+      if (e.key.toLowerCase() === "z") isRun = false;
+    });
 
     addEventListener("resize", () => {
       camera.aspect = innerWidth/innerHeight;
@@ -1435,33 +1452,46 @@
 
     function gameStep(dt){
       // look
-      camera.rotation.set(pitch,yaw,0,"YXZ");
-
+      camera.rotation.set(pitch, yaw, 0, "YXZ");
+    
       // move (per second units)
-      const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)).multiplyScalar(-1).normalize();
-      const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
-      let speed = keys.has("shift") ? SPRINT : WALK;
-      if(keys.has("w")) player.vel.addScaledVector(forward,  speed*dt);
-      if(keys.has("s")) player.vel.addScaledVector(forward, -speed*dt);
-      if(keys.has("a")) player.vel.addScaledVector(right,   -speed*dt);
-      if(keys.has("d")) player.vel.addScaledVector(right,    speed*dt);
-      if(keys.has(" ") && player.grounded) player.vel.y = JUMP_VEL;
+      const forward = new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)).multiplyScalar(-1).normalize();
+      const right   = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
+    
+      // Shift = crouch, Z = run (crouch overrides run)
+      let speed = WALK;
+      if (keys.has("z"))       speed = WALK * RUN_MULT;     // run
+      if (keys.has("shift"))   speed = WALK * CROUCH_MULT;  // crouch wins
+    
+      if (keys.has("w")) player.vel.addScaledVector(forward,  speed*dt);
+      if (keys.has("s")) player.vel.addScaledVector(forward, -speed*dt);
+      if (keys.has("a")) player.vel.addScaledVector(right,   -speed*dt);
+      if (keys.has("d")) player.vel.addScaledVector(right,    speed*dt);
+      if (keys.has(" ") && player.grounded) player.vel.y = JUMP_VEL;
+    
       // physics
       player.vel.y += GRAVITY * dt;
       updateSun(dt);
       moveAndCollide(dt);
       scheduleFriction(dt);
-
-      camera.position.copy(player.pos).add(new THREE.Vector3(0, player.size.y*0.75, 0));
-
+    
+      // Smooth eye height shift (crouch lowers view)
+      const eyeStand  = player.size.y * 0.75;   // your original eye height
+      const eyeCrouch = eyeStand - 0.30;        // ~0.3 blocks lower when crouched
+      const targetEye = keys.has("shift") ? eyeCrouch : eyeStand;
+      eyeY += (targetEye - eyeY) * Math.min(1, dt * 10);
+    
+      camera.position.copy(player.pos).add(new THREE.Vector3(0, eyeY, 0));
+    
       // chunk loading & meshing
       updateVisibleGridIfNeeded(player.pos.x, player.pos.z);
-      for(let i=0;i<BUILDS_PER_FRAME && buildQueue.length;i++){
+      for (let i=0; i<BUILDS_PER_FRAME && buildQueue.length; i++){
         buildMesh(buildQueue.shift());
       }
-
+    
       info.textContent = `Pos ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(1)}, ${player.pos.z.toFixed(1)} | grounded:${player.grounded} | queue:${buildQueue.length}`;
     }
+
 
     function loop(now){
       acc += Math.min(0.1, (now - last) / 1000); // accumulate dt, clamp big gaps
