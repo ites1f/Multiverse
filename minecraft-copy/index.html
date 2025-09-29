@@ -1464,25 +1464,6 @@
         solidAt(x - hx, y, z + hz) ||
         solidAt(x + hx, y, z + hz)
       );
-    }
-    function safeGetBlock(wx, wy, wz){
-      const x = Math.floor(wx), y = Math.floor(wy), z = Math.floor(wz);
-      const cx = Math.floor(x / CHUNK.X), cz = Math.floor(z / CHUNK.Z);
-      const ch = chunks.get(key(cx, cz));
-      if (!ch || !ch.generated) return BLOCK.AIR; // treat as air if not ready
-      const lx = x - cx * CHUNK.X, ly = y, lz = z - cz * CHUNK.Z;
-      if (lx<0||lx>=CHUNK.X || ly<0||ly>=CHUNK.Y || lz<0||lz>=CHUNK.Z) return BLOCK.AIR;
-      return ch.blocks[idx(lx, ly, lz)] ?? BLOCK.AIR;
-    }
-
-    function solidAtSafe(wx, wy, wz){
-      const id = safeGetBlock(wx, wy, wz);
-      return !!BLOCK_BY_ID?.[id]?.solid;
-    }
-
-    function centerSupportedAt(x, z, feetY){
-      return solidAtSafe(x, feetY - 1, z);
-    }
 
     /* Optimized: runs only if moving, and bails early on solid center.
        Prevents stepping OFF edges while crouching, but still lets you slide along. */
