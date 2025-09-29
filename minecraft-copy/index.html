@@ -17,9 +17,28 @@
     #cross:before, #cross:after { content: ""; position: absolute; background: #e9eefc; }
     #cross:before { left: 8px; top: 0; width: 2px; height: 18px; }
     #cross:after  { top: 8px; left: 0; height: 2px; width: 18px; }
+    #hotbar{
+      position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+      display:flex; gap:8px; padding:10px 12px; border-radius:12px;
+      background:rgba(0,0,0,.35); backdrop-filter: blur(2px);
+    }
+    .hot-slot{
+      width:44px; height:44px; border-radius:8px; border:1px solid rgba(255,255,255,.2);
+      display:grid; place-items:center; font:12px ui-monospace,Consolas,monospace; color:#e9eefc;
+      background:rgba(255,255,255,.06);
+    }
+    .hot-slot.sel{ outline:2px solid #60a5fa; }
+    .hot-slot .label{ opacity:.85; }
+    #fx{ position:fixed; inset:0; pointer-events:none; }
+
   </style>
 </head>
 <body>
+  <!-- Hotbar -->
+  <div id="hotbar"></div>
+  <!-- FX overlay for breaking progress (canvas, full-screen) -->
+  <canvas id="fx"></canvas>
+
   <div id="hud">
     <div><b>Voxel Prototype</b> — click to lock mouse • F3 toggles HUD</div>
     <div>WASD move • Space jump • Shift sprint • Left: break • Right: place • 1–4 block • R: regen</div>
@@ -122,6 +141,46 @@
       [BLOCK.LEAVES]: true,
       [BLOCK.GLASS]: true,
     };
+        /* ===== Inventory (9-slot hotbar) ===== */
+    const INV = {
+      slots: Array.from({length:9}, (_,i)=>({ id:[BLOCK.STONE,BLOCK.GRASS,BLOCK.DIRT,BLOCK.GLASS,BLOCK.STONE,BLOCK.GRASS,BLOCK.DIRT,BLOCK.GLASS,BLOCK.STONE][i], count: 64 })),
+      sel: 0, // 0..8
+    };
+    function renderHotbar(){
+      const el = document.getElementById("hotbar"); if (!el) return;
+      el.innerHTML = "";
+      INV.slots.forEach((s,i)=>{
+        const d = document.createElement("div");
+        d.className = "hot-slot"+(i===INV.sel?" sel":"");
+        d.innerHTML = `<div class="label">${Object.keys(BLOCK).find(k=>BLOCK[k]===s.id) || s.id}</div><div>${s.count??""}</div>`;
+        el.appendChild(d);
+      });
+    }
+    function selectHotbar(n){ INV.sel = Math.max(0, Math.min(8, n)); CURRENT_BLOCK = INV.slots[INV.sel].id; renderHotbar(); }
+    renderHotbar();
+    
+    // number keys 1..9 select
+    addEventListener("keydown", (e)=>{
+      if (e.repeat) return;
+      const d = e.keyCode - 49; // '1' -> 0
+      if (d>=0 && d<=8){ selectHotbar(d); }
+    });
+    
+    // scroll to cycle
+    addEventListener("wheel",(e)=>{
+      const dir = e.deltaY>0?1:-1;
+      selectHotbar((INV.sel + dir + 9)%9);
+    });
+    
+    // consume on place (optional – toggle by setting CONSUME=true/false)
+    const CONSUME = false;
+    function tryConsumeSelected(){
+      if (!CONSUME) return true;
+      const s = INV.slots[INV.sel];
+      if (!s || s.count<=0) return false;
+      s.count--; renderHotbar(); return true;
+    }
+
 
     /* ===== Scene ===== */
     const scene = new THREE.Scene();
@@ -952,17 +1011,21 @@
           if (!p.hit) return;
         
           if (e.button === 0) {
-            // break the hit block
+            // break the hit block (unchanged for step 1)
             setBlock(p.pos.x, p.pos.y, p.pos.z, BLOCK.AIR);
+          
           } else if (e.button === 2) {
             // place on the face you aimed at — but never inside player
             const tx = p.place.x, ty = p.place.y, tz = p.place.z;
-            if (wouldCollideWithPlayer(tx, ty, tz)) {
-              // optional: tiny feedback
-              // console.log("Blocked: placing inside player");
-              return;
+            if (wouldCollideWithPlayer(tx, ty, tz)) return;
+          
+            // INVENTORY: consume from selected slot before placing
+            if (tryConsumeSelected()) {
+              setBlock(tx, ty, tz, CURRENT_BLOCK);
+            } else {
+              // optional: out-of-items feedback
+              // console.log("No more items in selected slot");
             }
-            setBlock(tx, ty, tz, CURRENT_BLOCK);
           }
         });
 
