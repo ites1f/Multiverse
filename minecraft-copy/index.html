@@ -1509,6 +1509,25 @@
       if (!cornersSupported(player.pos.x, nz, feetY)) player.vel.z = 0;
     }
 
+    // ---- Solidity helpers (no BLOCK_BY_ID required) ----
+    const SOLID_SET = new Set([
+      BLOCK.STONE, BLOCK.DIRT, BLOCK.GRASS, BLOCK.GLASS,
+      BLOCK.LOG, BLOCK.LEAVES, BLOCK.SAND, BLOCK.BEDROCK
+    ]);
+    function isSolid(id){ return SOLID_SET.has(id); }
+
+    // Safe block read that never triggers gen
+    function safeGetBlock(wx, wy, wz){
+      const x = Math.floor(wx), y = Math.floor(wy), z = Math.floor(wz);
+      const cx = Math.floor(x / CHUNK.X), cz = Math.floor(z / CHUNK.Z);
+      const ch = chunks.get(key(cx, cz));
+      if (!ch || !ch.generated) return BLOCK.AIR;
+      const lx = x - cx * CHUNK.X, ly = y, lz = z - cz * CHUNK.Z;
+      if (lx<0||lx>=CHUNK.X || ly<0||ly>=CHUNK.Y || lz<0||lz>=CHUNK.Z) return BLOCK.AIR;
+      return ch.blocks[idx(lx, ly, lz)] ?? BLOCK.AIR;
+    }
+    function solidAtSafe(wx, wy, wz){ return isSolid(safeGetBlock(wx, wy, wz)); }
+    function centerSupportedAt(x, z, feetY){ return solidAtSafe(x, feetY - 1, z); }
 
     /* ===== Startup & Loop ===== */
     regenAll();
@@ -1522,14 +1541,14 @@
       // --- look ---
       camera.rotation.set(pitch, yaw, 0, "YXZ");
     
-      // --- movement vectors (per second units) ---
+      // --- movement vectors ---
       const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(-1).normalize();
       const right   = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
     
-      // --- speed: Shift=crouch, Z=run (crouch wins if both) ---
+      // --- speed: Shift=crouch, Z=run (crouch overrides run) ---
       let speed = WALK;
-      if (keys.has("z"))     speed = WALK * RUN_MULT;     // run
-      if (keys.has("shift")) speed = WALK * CROUCH_MULT;  // crouch overrides
+      if (keys.has("z"))     speed = WALK * RUN_MULT;
+      if (keys.has("shift")) speed = WALK * CROUCH_MULT;
     
       if (keys.has("w")) player.vel.addScaledVector(forward,  speed*dt);
       if (keys.has("s")) player.vel.addScaledVector(forward, -speed*dt);
@@ -1541,7 +1560,7 @@
       player.vel.y += GRAVITY * dt;
       updateSun(dt);
     
-      // --- save position before physics (for sneak edge revert) ---
+      // --- save pos before physics (for sneak edge revert) ---
       const prevX = player.pos.x, prevZ = player.pos.z;
       const feetY = Math.floor(player.pos.y - 0.1);
     
@@ -1549,20 +1568,19 @@
       moveAndCollide(dt);
       scheduleFriction(dt);
     
-      // --- sneak: don't step off edges (post-move, cheap & safe) ---
+      // --- sneak: don't step off edges (post-move, safe) ---
       if (keys.has("shift") && player.grounded){
         const nowSupported  = centerSupportedAt(player.pos.x, player.pos.z, feetY);
         const prevSupported = centerSupportedAt(prevX,        prevZ,        feetY);
         if (!nowSupported && prevSupported){
-          // snap back horizontally; keep vertical physics intact
           player.pos.x = prevX; player.vel.x = 0;
           player.pos.z = prevZ; player.vel.z = 0;
         }
       }
     
-      // --- camera (smooth eye height when crouching) ---
-      const eyeStand  = player.size.y * 0.75;  // your original eye offset
-      const eyeCrouch = eyeStand - 0.30;       // ~0.3 blocks lower when crouched
+      // --- camera (smooth eye height when crouched) ---
+      const eyeStand  = player.size.y * 0.75;
+      const eyeCrouch = eyeStand - 0.30;
       const targetEye = keys.has("shift") ? eyeCrouch : eyeStand;
       eyeY += (targetEye - eyeY) * Math.min(1, dt * 10);
       camera.position.copy(player.pos).add(new THREE.Vector3(0, eyeY, 0));
@@ -1577,7 +1595,6 @@
         `Pos ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(1)}, ${player.pos.z.toFixed(1)} | ` +
         `grounded:${player.grounded} | queue:${buildQueue.length}`;
     }
-
 
     function loop(now){
       acc += Math.min(0.1, (now - last) / 1000); // accumulate dt, clamp big gaps
