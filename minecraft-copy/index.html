@@ -333,6 +333,163 @@
       if (lbl) lbl.textContent = (s.count > 1) ? String(s.count) : "";
       return true;
     }
+    const InvUI = {
+      root: document.getElementById("invUI"),
+      rows: [ document.getElementById("invRow0"),
+              document.getElementById("invRow1"),
+              document.getElementById("invRow2") ],
+      hot:  document.getElementById("invHotbar"),
+      cursor: document.getElementById("invCursor")
+    };
+
+    /* Build static cells */
+    function buildInventory(){
+      // Backpack 27
+      for (let r=0;r<3;r++){
+        const row = InvUI.rows[r]; row.innerHTML = "";
+        for (let c=0;c<9;c++){
+          const i = r*9 + c;
+          const el = document.createElement("div"); el.className = "invSlot"; el.dataset.key = "bag:"+i;
+          el.innerHTML = `<div class="invIcon"></div><div class="invCount"></div>`;
+          row.appendChild(el);
+        }
+      }
+      // Hotbar 9
+      InvUI.hot.innerHTML = "";
+      for (let i=0;i<9;i++){
+        const el = document.createElement("div"); el.className = "invHotSlot"; el.dataset.key = "hotbar:"+i;
+        el.innerHTML = `<div class="invIcon"></div><div class="invCount"></div>`;
+        InvUI.hot.appendChild(el);
+      }
+      refreshInventoryUI();
+    }
+    // Once at startup (after buildInventory()):
+    document.getElementById("invUI").addEventListener("click", onSlotClick);
+    document.getElementById("invHotbar").addEventListener("click", onSlotClick);
+
+
+    /* Update one cell quickly ("bag:12" or "hotbar:3") */
+    function updateOneUI(key){
+      const el = InvUI.root.querySelector(`[data-key="${key}"]`);
+      if (!el) return;
+      const icon = el.querySelector(".invIcon");
+      const cnt  = el.querySelector(".invCount");
+      const [kind, idxStr] = key.split(":"); const i = +idxStr;
+      const s = (kind==="bag") ? INV.backpack[i] : INV.slots[i];
+      if (slotIsEmpty(s)){ icon.style.backgroundPosition=""; cnt.textContent=""; return; }
+      setIconBG(icon, s.id);
+      cnt.textContent = (s.count>1) ? String(s.count) : "";
+    }
+
+    /* Full refresh (rare) */
+    function refreshInventoryUI(){
+      for (let i=0;i<27;i++) updateOneUI("bag:"+i);
+      for (let i=0;i<9;i++)  updateOneUI("hotbar:"+i);
+    }
+
+    /* Cursor ghost follow */
+    addEventListener("mousemove",(e)=>{
+      if (InvUI.root.style.display !== "flex") return;
+      InvUI.cursor.style.left = e.clientX+"px";
+      InvUI.cursor.style.top  = e.clientY+"px";
+    });
+
+    /* Click/drag behavior */
+    function getSlotByKey(key){
+      const [kind, idxStr] = key.split(":"); const i = +idxStr;
+      return (kind==="bag") ? INV.backpack[i] : INV.slots[i];
+    }
+    function onSlotClick(ev){
+      const cell = ev.target.closest("[data-key]");
+      if (!cell) return;
+      const slot = getSlotByKey(cell.dataset.key);
+      const isBackpack = cell.dataset.key.startsWith("bag:");
+      if (ev.shiftKey){
+        // Quick move between bag <-> hotbar
+        quickMove(slot, isBackpack);
+        updateOneUI(cell.dataset.key);
+        return;
+      }
+      if (slotIsEmpty(slot)){
+        // place cursor into this empty slot
+        if (!slotIsEmpty(CURSOR)){
+          // drop as much as fits
+          if (slotIsEmpty(slot)){
+            slot.id = CURSOR.id; slot.count = Math.min(MAX_STACK, CURSOR.count);
+            CURSOR.count -= slot.count;
+            if (CURSOR.count<=0){ CURSOR.id=null; CURSOR.count=0; InvUI.cursor.style.display="none"; }
+            updateOneUI(cell.dataset.key);
+          }
+        }
+      } else {
+        if (slotIsEmpty(CURSOR)){
+          // pick up entire stack
+          CURSOR.id = slot.id; CURSOR.count = slot.count;
+          slot.id=null; slot.count=0;
+          updateOneUI(cell.dataset.key);
+          paintCursor();
+        } else {
+          // same item? merge; else swap
+          if (CURSOR.id===slot.id){
+            CURSOR.count = tryMergeInto(slot, CURSOR.count);
+            updateOneUI(cell.dataset.key);
+            if (CURSOR.count<=0){ CURSOR.id=null; CURSOR.count=0; InvUI.cursor.style.display="none"; }
+            else paintCursor();
+          } else {
+            // swap
+            const tmp = {id:slot.id,count:slot.count};
+            slot.id = CURSOR.id; slot.count = CURSOR.count;
+            CURSOR.id = tmp.id; CURSOR.count = tmp.count;
+            updateOneUI(cell.dataset.key);
+            paintCursor();
+          }
+        }
+      }
+    }
+    function paintCursor(){
+      const cur = InvUI.cursor;
+      const icon = cur.querySelector(".invIcon");
+      const cnt  = cur.querySelector(".invCount");
+      if (slotIsEmpty(CURSOR)){ cur.style.display="none"; return; }
+      setIconBG(icon, CURSOR.id);
+      cnt.textContent = (CURSOR.count>1)? String(CURSOR.count) : "";
+      cur.style.display = "block";
+    }
+
+    /* Toggle inventory (E) */
+    let inventoryOpen = false;
+    function toggleInventory(force){
+      const open = (typeof force==="boolean") ? force : !inventoryOpen;
+      inventoryOpen = open;
+      InvUI.root.style.display = open ? "flex" : "none";
+    
+      // enable clicking the hotbar only when inventory is open
+      document.getElementById("hotbarUI").style.pointerEvents = open ? "auto" : "none";
+    
+      // stop/resume pointer lock & block gameplay clicks while open
+      if (open && document.pointerLockElement){
+        document.exitPointerLock();
+      }
+      if (!open){
+        // drop any cursor stack back to inventory if still holding
+        if (!slotIsEmpty(CURSOR)){
+          // try to shove into backpack/hotbar
+          const temp = { id: CURSOR.id, count: CURSOR.count };
+          quickMove(temp, /*isBackpack*/false); // prefer hotbar first
+          if (temp.count>0){
+            // then backpack
+            const fake = { id: temp.id, count: temp.count };
+            quickMove(fake, /*isBackpack*/true);
+          }
+          CURSOR.id=null; CURSOR.count=0; paintCursor();
+          refreshInventoryUI();
+          buildHotbar(); // refresh counts/icons
+          buildInventory();
+
+        }
+      }
+    }
+
     /* ===== Inventory: real drops & stacking ===== */
     const MAX_STACK = 64;
 
@@ -529,6 +686,60 @@
         applyBetterFps(true);         // actually apply the preset
       }
     });
+    /* ===== Backpack data (27 slots) ===== */
+    INV.backpack = INV.backpack || Array.from({length:27}, ()=>({id:null,count:0}));
+
+    /* Cursor-held stack while dragging */
+    const CURSOR = { id:null, count:0 };
+
+    /* Helpers */
+    function slotIsEmpty(s){ return !s || s.count<=0 || s.id==null; }
+    function sameItem(a,b){ return a && b && a.id===b.id && a.id!=null; }
+    function canMerge(dst,src){ return sameItem(dst,src) && dst.count < MAX_STACK; }
+
+    /* Merge place: returns leftover count */
+    function tryMergeInto(dst, srcCount){
+      const space = MAX_STACK - dst.count;
+      const mv = Math.min(space, srcCount);
+      dst.count += mv;
+      return srcCount - mv;
+    }
+
+    /* Swap entire stacks */
+    function swapStacks(a,b){ const t={id:a.id,count:a.count}; a.id=b.id; a.count=b.count; b.id=t.id; b.count=t.count; }
+
+    /* Quick-move: bag <-> hotbar */
+    function quickMove(slot, isBackpack){
+      const target = isBackpack ? INV.slots : INV.backpack;
+      // 1) merge into partial stacks first
+      let left = slot.count;
+      for (let i=0;i<target.length && left>0;i++){
+        const s = target[i];
+        if (s.id===slot.id && s.count>0 && s.count<MAX_STACK){
+          left = tryMergeInto(s, left);
+          updateOneUI(isBackpack?("hotbar:"+i):("bag:"+i));
+        }
+      }
+      // 2) fill empties
+      for (let i=0;i<target.length && left>0;i++){
+        const s = target[i];
+        if (slotIsEmpty(s)){
+          s.id = slot.id; s.count = Math.min(MAX_STACK, left);
+          left -= s.count;
+          updateOneUI(isBackpack?("hotbar:"+i):("bag:"+i));
+        }
+      }
+      // remove from source
+      if (left===0){ slot.id=null; slot.count=0; }
+      else { slot.count = left; }
+    }
+
+    /* Icon % mapping reused */
+    function setIconBG(div, blockId){
+      const {tx,ty} = iconTileFor(blockId ?? BLOCK.STONE);
+      const uStep = 100 / (4-1), vStep = 100 / (4-1);
+      div.style.backgroundPosition = `${tx*uStep}% ${ty*vStep}%`;
+    }
 
     // Toggle with F3
     addEventListener("keydown", (e)=>{
@@ -557,6 +768,8 @@
 
     /* Initial paint */
     buildHotbar();
+    buildInventory();
+
 
 
 
@@ -828,6 +1041,7 @@
       pointerLocked = (document.pointerLockElement === renderer.domElement);
     });
     document.addEventListener("mousemove", (e) => {
+      if (inventoryOpen) return;  
       if (!pointerLocked) return;
       const sens = 0.0025, MAX_D = 80;
       const dx = Math.max(-MAX_D, Math.min(MAX_D, e.movementX||0));
@@ -844,6 +1058,11 @@
         hudVisible = !hudVisible;
         document.getElementById("hud").style.display = hudVisible ? "block" : "none";
         e.preventDefault(); e.stopPropagation();
+        return;
+      }
+      if (k === "e"){
+        toggleInventory();
+        e.preventDefault();
         return;
       }
       if (k==="r") regenAll();
