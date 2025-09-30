@@ -814,12 +814,6 @@
         }
       } catch (e){ /* noop */ }
     
-      // Add drops to inventory (stacking)
-      if (typeof invAdd === "function"){
-        for (const drop of drops){
-          invAdd(drop.id, drop.count);
-        }
-      }
     }
     function tryConsumeSelected(){
       // skip
