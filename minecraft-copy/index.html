@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Web Voxel Prototype (Textured, No Sky)</title>
-  <style>
+  <title>NOT DONE</title>
+  <style>  
     html, body { margin:0; height:100%; background:#0b1220; overflow:hidden; }
     #hud {
       position: fixed; top: 12px; left: 12px;
@@ -17,95 +17,12 @@
     #cross:before, #cross:after { content: ""; position: absolute; background: #e9eefc; }
     #cross:before { left: 8px; top: 0; width: 2px; height: 18px; }
     #cross:after  { top: 8px; left: 0; height: 2px; width: 18px; }
-    /* ===== Minecraft-like Hotbar (pixel-perfect) ===== */
-    #hotbarUI {
-      position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
-      width: 364px; height: 64px; pointer-events: none; 
-    }
-
-    #hotbarBG {
-      position: absolute; left: 50%; top: 50%;
-      transform: translate(-50%,-50%);
-      width: 364px; height: 64px;
-      image-rendering: pixelated;
-      opacity: 0.98;
-      z-index: 0;
-    }
-
-    /* exact inner area: 9*36 + 8*4 = 356px wide, 36px tall */
-    #hotbarSlots {
-      position: absolute; left: 50%; top: 50%;
-      transform: translate(-50%,-50%);
-      display: grid;
-      grid-template-columns: repeat(9, 36px);
-      gap: 4px;
-      width: 356px; height: 36px;
-      z-index: 1;
-    }
-
-    .hotSlot {
-      position: relative;
-      width: 36px; height: 36px;
-      display: grid; place-items: center;
-      pointer-events: none;
-    }
-
-    .hotIcon {
-      width: 28px; height: 28px;
-      image-rendering: pixelated;
-      background-image: url("atlas.png");
-      background-repeat: no-repeat;
-      background-size: calc(var(--tiles-x,4) * 100%) calc(var(--tiles-y,4) * 100%);
-    }
-
-    .hotCount {
-      position: absolute; right: 2px; bottom: 0;
-      font: 11px ui-monospace, Consolas, monospace;
-      color: #fff; text-shadow: 1px 1px 0 #000, -1px 0 0 #000, 0 -1px 0 #000;
-      opacity: 0.95;
-      z-index: 2;
-    }
-
-    #hotbarSel {
-      position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%,-50%);
-      width: 40px; height: 40px;
-      image-rendering: pixelated;
-      pointer-events: none;
-      z-index: 2;
-    }
-    #hotbarSel[data-css="true"] {
-      display: block; background: transparent; border: 2px solid #fff; border-radius: 4px;
-      box-shadow: 0 0 0 2px rgba(0,0,0,.6) inset, 0 0 6px rgba(255,255,255,.35);
-    }
-
-    /* ===== Inventory UI ===== */
-    
-    
-    
-    
-    .invSlot, 
-    
-    
-    
-    /* cursor stack */
-    
-    #invCursor 
-    #invCursor 
-
   </style>
 </head>
 <body>
   <!-- HOTBAR UI -->
-  <div id="hotbarUI">
-    <img id="hotbarBG" src="ui/hotbar.png" alt="" onerror="this.style.display='none'">
-    <div id="hotbarSlots"></div>
-    <img id="hotbarSel" src="ui/selector.png" alt="" onerror="this.dataset.css='true'">
-  </div>
-
-  
-  </div>
-
+  <!-- INVENTORY UI -->  
+  <!-- Cursor “ghost” when dragging a stack -->
   <!-- HUD UI -->
   <div id="hud">
     <div><b>Voxel Prototype</b> — click to lock mouse • F3 toggles HUD</div>
@@ -118,34 +35,10 @@
     Gravity <input id="gSlider" type="range" min="-20" max="0" step="0.1" value="-19"> <span id="gVal"></span><br>
     JumpVel <input id="jSlider" type="range" min="0" max="20" step="0.1" value="6.7"> <span id="jVal"></span><br>
     WalkSpd <input id="wSlider" type="range" min="0" max="500" step="1" value="70"> <span id="wVal"></span><br>
-    SprintSpd <input id="sSlider" type="range" min="0" max="700" step="1" value="100"> <span id="sVal"></span><br>
-
     <hr>
     <b>Render</b><br>
     RenderDist <input id="rSlider" type="range" min="0" max="10" step="1" value="6"> <span id="rVal"></span><br>
     Builds/frame <input id="bSlider" type="range" min="1" max="24" step="1" value="6"> <span id="bVal"></span><br>
-<!--
-    <hr>
-    <b>4D</b><br>
-
-    BiomeScale <input id="biomeSlider" type="range" min="0.0005" max="0.02" step="0.0001" value="0.0100"> <span id="biomeVal"></span><br>
-    WarpScale <input id="warpScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="warpScaleVal"></span><br>
-    WarpStrength <input id="warpStrengthSlider" type="range" min="0" max="50" step="1" value="18"> <span id="warpStrengthVal"></span><br>
-
-    PlainsBase <input id="plainsBaseSlider" type="range" min="0" max="140" step="1" value="33"> <span id="plainsBaseVal"></span><br>
-    PlainsWobble <input id="plainsWobbleSlider" type="range" min="0" max="10" step="0.1" value="3.0"> <span id="plainsWobbleVal"></span><br>
-
-    HillsScale <input id="hillsScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.015"> <span id="hillsScaleVal"></span><br>
-    HillsAmp <input id="hillsAmpSlider" type="range" min="0" max="60" step="1" value="20"> <span id="hillsAmpVal"></span><br>
-
-    MountScale <input id="mountScaleSlider" type="range" min="0.003" max="0.05" step="0.001" value="0.005"> <span id="mountScaleVal"></span><br>
-    MountRidges <input id="mountRidgesSlider" type="range" min="10" max="300" step="1" value="220"> <span id="mountRidgesVal"></span><br>
-
-    SpotScale <input id="spotScaleSlider" type="range" min="0.005" max="0.05" step="0.001" value="0.012"> <span id="spotScaleVal"></span><br>
-    SpotThreshold <input id="spotThresholdSlider" type="range" min="0" max="1" step="0.01" value="0.55"> <span id="spotThresholdVal"></span><br>
-
-    SpotAmp <input id="spotAmpSlider" type="range" min="0" max="60" step="1" value="30"> <span id="spotAmpVal"></span><br>
-    -->
   </div>
 
   <div id="cross"></div>
@@ -157,59 +50,38 @@
 
 
     // Physics (per-second)
-    let GRAVITY  = -19;  // was -0.027 * 60
-    let JUMP_VEL =  6.7;   // was  0.14  * 60
-
+    let GRAVITY  = -19;  
+    let JUMP_VEL =  6.7;   
     // Horizontal accel (per-second). With DRAG=6 these settle to ~a/DRAG speed.
-    let WALK     = 70;     // -> ~4.5 units/s cruise (27 / 6)
-    let SPRINT   = 100;     // -> ~7.5 units/s cruise (45 / 6)
-
-
+    let WALK     = 50;    
     // friction
     let FRICTION_GROUND = 0.86;
     let FRICTION_AIR    = 0.89;
-
     // --- Biome & shape tuning ---
     let BIOME_SCALE     = 0.0190;
     let WARP_SCALE      = 0.012;
     let WARP_STRENGTH   = 18.0;
-
     // Plains
     let PLAINS_BASE     = 23;
     let PLAINS_WOBBLE   = 3.0;
-
     // Hills
     let HILLS_SCALE     = 0.015;
     let HILLS_AMP       = 20;
-
     // Mountains (ridged)
     let MOUNT_SCALE     = 0.005;
     let MOUNT_RIDGES    = 220;
-
     // “Hilly patches”
     let SPOT_SCALE      = 0.012;
     let SPOT_THRESHOLD  = 0.55;
     let SPOT_AMPLITUDE  = 30;
-
     // World management
     let GRID_RADIUS = 4;
     let BUILDS_PER_FRAME = 12;
-
-    // backup shaping (unused in terrain formula but kept for sliders)
-    let MASK_SCALE   = 0.001;
-    let HILL_SCALE   = 0.020;
-    let DETAIL_SCALE = 0.080;
-    let MOUNT_AMP    = 5;
-    
     /* ===== Movement tuning ===== */
-    let BASE_SPEED    = 7.0;  // blocks/sec (set to your normal walk speed)
     let RUN_MULT      = 1.3;  // sprint factor (Z)
     let CROUCH_MULT   = 0.5;  // crouch factor (Shift)
-    let EYE_BASE      = 1.62; // normal eye height
-    let EYE_CROUCH    = 1.32; // crouched eye height
     let isRun = false, isCrouch = false;
     let eyeY = EYE_BASE; // smoothed eye height
-
     const REACH_DISTANCE = 6;
 
     /* ===== Config ===== */
@@ -272,10 +144,27 @@
       if (lbl) lbl.textContent = (s.count > 1) ? String(s.count) : "";
       return true;
     }
-    
+    const InvUI = {
+      root: document.getElementById("invUI"),
+      rows: [ document.getElementById("invRow0"),
+              document.getElementById("invRow1"),
+              document.getElementById("invRow2") ],
+      hot:  document.getElementById("invHotbar"),
+      cursor: document.getElementById("invCursor")
+    };
 
     /* Build static cells */
-    }
+    function buildInventory(){
+      // Backpack 27
+      for (let r=0;r<3;r++){
+        const row = InvUI.rows[r]; row.innerHTML = "";
+        for (let c=0;c<9;c++){
+          const i = r*9 + c;
+          const el = document.createElement("div"); el.className = "invSlot"; el.dataset.key = "bag:"+i;
+          el.innerHTML = `<div class="invIcon"></div><div class="invCount"></div>`;
+          row.appendChild(el);
+        }
+      }
       // Hotbar 9
       InvUI.hot.innerHTML = "";
       for (let i=0;i<9;i++){
@@ -286,8 +175,13 @@
       refreshInventoryUI();
     }
     // Once at startup (after buildInventory()):
+    document.getElementById("invUI").addEventListener("click", onSlotClick);
+    document.getElementById("invHotbar").addEventListener("click", onSlotClick);
+
+
     /* Update one cell quickly ("bag:12" or "hotbar:3") */
-    "]`);
+    function updateOneUI(key){
+      const el = InvUI.root.querySelector(`[data-key="${key}"]`);
       if (!el) return;
       const icon = el.querySelector(".invIcon");
       const cnt  = el.querySelector(".invCount");
@@ -299,6 +193,11 @@
     }
 
     /* Full refresh (rare) */
+    function refreshInventoryUI(){
+      for (let i=0;i<27;i++) updateOneUI("bag:"+i);
+      for (let i=0;i<9;i++)  updateOneUI("hotbar:"+i);
+    }
+
     /* Cursor ghost follow */
     addEventListener("mousemove",(e)=>{
       if (InvUI.root.style.display !== "flex") return;
@@ -311,7 +210,18 @@
       const [kind, idxStr] = key.split(":"); const i = +idxStr;
       return (kind==="bag") ? INV.backpack[i] : INV.slots[i];
     }
-    if (slotIsEmpty(slot)){
+    function onSlotClick(ev){
+      const cell = ev.target.closest("[data-key]");
+      if (!cell) return;
+      const slot = getSlotByKey(cell.dataset.key);
+      const isBackpack = cell.dataset.key.startsWith("bag:");
+      if (ev.shiftKey){
+        // Quick move between bag <-> hotbar
+        quickMove(slot, isBackpack);
+        updateOneUI(cell.dataset.key);
+        return;
+      }
+      if (slotIsEmpty(slot)){
         // place cursor into this empty slot
         if (!slotIsEmpty(CURSOR)){
           // drop as much as fits
@@ -347,14 +257,31 @@
         }
       }
     }
-    setIconBG(icon, CURSOR.id);
+    function paintCursor(){
+      const cur = InvUI.cursor;
+      const icon = cur.querySelector(".invIcon");
+      const cnt  = cur.querySelector(".invCount");
+      if (slotIsEmpty(CURSOR)){ cur.style.display="none"; return; }
+      setIconBG(icon, CURSOR.id);
       cnt.textContent = (CURSOR.count>1)? String(CURSOR.count) : "";
       cur.style.display = "block";
     }
 
     /* Toggle inventory (E) */
     let inventoryOpen = false;
-    if (!open){
+    function toggleInventory(force){
+      const open = (typeof force==="boolean") ? force : !inventoryOpen;
+      inventoryOpen = open;
+      InvUI.root.style.display = open ? "flex" : "none";
+    
+      // enable clicking the hotbar only when inventory is open
+      document.getElementById("hotbarUI").style.pointerEvents = open ? "auto" : "none";
+    
+      // stop/resume pointer lock & block gameplay clicks while open
+      if (open && document.pointerLockElement){
+        document.exitPointerLock();
+      }
+      if (!open){
         // drop any cursor stack back to inventory if still holding
         if (!slotIsEmpty(CURSOR)){
           // try to shove into backpack/hotbar
@@ -367,8 +294,9 @@
           }
           CURSOR.id=null; CURSOR.count=0; paintCursor();
           refreshInventoryUI();
-          buildHotbar(); // refresh counts/icons
-          }
+          buildInventory();
+
+        }
       }
     }
 
@@ -389,48 +317,20 @@
     }
 
     /* add items into inventory (merge then fill). Returns leftover count (0 if all added). */
+    function invAdd(itemId, count){
+      if (!itemId || count <= 0) return 0;
     
-function invAdd(id, n = 1){
-  if (n <= 0 || id == null) return true;
-  const slots = INV.slots;
-  const MAX = (typeof MAX_STACK !== 'undefined' && MAX_STACK) ? MAX_STACK : 64;
-  const empty = s => !s || s.id == null || s.count <= 0;
-  // 1) merge into hotbar 0..8
-  for (let i=0;i<9 && n>0;i++){
-    const s = slots[i];
-    if (!empty(s) && s.id === id && s.count < MAX){
-      const can = Math.min(MAX - s.count, n);
-      s.count += can; n -= can;
-    }
-  }
-  // 2) fill empty hotbar 0..8
-  for (let i=0;i<9 && n>0;i++){
-    const s = slots[i];
-    if (empty(s)){
-      const put = Math.min(MAX, n);
-      s.id = id; s.count = put; n -= put;
-    }
-  }
-  // 3) merge into backpack 9..35
-  for (let i=9;i<36 && n>0;i++){
-    const s = slots[i];
-    if (!empty(s) && s.id === id && s.count < MAX){
-      const can = Math.min(MAX - s.count, n);
-      s.count += can; n -= can;
-    }
-  }
-  // 4) fill empty backpack 9..35
-  for (let i=9;i<36 && n>0;i++){
-    const s = slots[i];
-    if (empty(s)){
-      const put = Math.min(MAX, n);
-      s.id = id; s.count = put; n -= put;
-    }
-  }
-  if (typeof buildHotbar === 'function') buildHotbar();
-  return n === 0;
-}
-}
+      // 1) merge into partial stacks
+      for (let i=0; i<INV.slots.length && count>0; i++){
+        const s = INV.slots[i];
+        if (s.id === itemId && s.count < MAX_STACK){
+          const space = MAX_STACK - s.count;
+          const add = Math.min(space, count);
+          s.count += add;
+          count -= add;
+          updateHotbarSlotUI(i);
+        }
+      }
       // 2) fill empty slots
       for (let i=0; i<INV.slots.length && count>0; i++){
         const s = INV.slots[i];
@@ -527,32 +427,6 @@ function invAdd(id, n = 1){
       selImg: document.getElementById("hotbarSel"),
       cellCenterX: [], // per-slot pixel X for sel image
     };
-
-    function buildHotbar(){
-      if (!_hb.root || !_hb.slotsWrap) return;
-      _hb.slotsWrap.innerHTML = "";
-    
-      // We’ll compute centers based on wrapper bounds after first paint
-      _hb.cellCenterX.length = 0;
-    
-      INV.slots.forEach((s, i)=>{
-        const d = document.createElement("div"); d.className = "hotSlot";
-        const icon = document.createElement("div"); icon.className = "hotIcon";
-        const {tx,ty} = iconTileFor(s.id);
-        // background-position as percentage by tile index:
-        const uStep = 100 / (4-1);  // TILES_X-1
-        const vStep = 100 / (4-1);  // TILES_Y-1
-        icon.style.backgroundPosition = `${tx*uStep}% ${ty*vStep}%`;
-      
-        const cnt = document.createElement("div"); cnt.className = "hotCount";
-        cnt.textContent = (s.count>1)? String(s.count) : "";
-      
-        d.appendChild(icon); d.appendChild(cnt);
-        _hb.slotsWrap.appendChild(d);
-      });
-    
-      requestAnimationFrame(positionSelector);
-    }
 
     function positionSelector(){
       const wrap = _hb.slotsWrap, sel = _hb.selImg;
@@ -677,7 +551,11 @@ function invAdd(id, n = 1){
     addEventListener("resize", positionSelector);
 
     /* Initial paint */
-    buildHotbar();
+    buildInventory();
+
+
+
+
     /* ===== Scene ===== */
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000);
@@ -966,6 +844,11 @@ function invAdd(id, n = 1){
         e.preventDefault(); e.stopPropagation();
         return;
       }
+      if (k === "e"){
+        toggleInventory();
+        e.preventDefault();
+        return;
+      }
       if (k==="r") regenAll();
     });
     addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
@@ -982,25 +865,9 @@ function invAdd(id, n = 1){
     bind("gSlider",   v => GRAVITY=v);
     bind("jSlider",   v => JUMP_VEL=v);
     bind("wSlider",   v => WALK=v);
-    bind("sSlider",   v => SPRINT=v);
     bind("rSlider",   v => { GRID_RADIUS = v|0; scheduleGridRefresh(); }, v=>v|0);
   
     bind("bSlider",   v => { BUILDS_PER_FRAME = v|0; }, v=>v|0);
-  /*
-    bind("biomeSlider",     v => { BIOME_SCALE = v; }, v=> (+v).toFixed(4));
-    bind("warpScaleSlider", v => { WARP_SCALE = v; }, v=> (+v).toFixed(3));
-    bind("warpStrengthSlider", v => { WARP_STRENGTH = v; }, v=> v|0);
-    bind("plainsBaseSlider",   v => { PLAINS_BASE = v; }, v=> v|0);
-    bind("plainsWobbleSlider", v => { PLAINS_WOBBLE = v; }, v=> (+v).toFixed(1));
-    bind("hillsScaleSlider", v => { HILLS_SCALE = v; }, v=> (+v).toFixed(3));
-    bind("hillsAmpSlider",   v => { HILLS_AMP = v; }, v=> v|0);
-    bind("mountScaleSlider",  v => { MOUNT_SCALE = v; }, v=> (+v).toFixed(3));
-    bind("mountRidgesSlider", v => { MOUNT_RIDGES = v; }, v=> v|0);
-    bind("spotScaleSlider",     v => { SPOT_SCALE = v; }, v=> (+v).toFixed(3));
-    bind("spotThresholdSlider", v => { SPOT_THRESHOLD = v; }, v=> (+v).toFixed(2));
-  
-    bind("spotAmpSlider",       v => { SPOT_AMPLITUDE = v; }, v=> v|0);
-  */
     /* ===== Noise ===== */
     function hash2i(x, y) {
       let h = x*374761393 + y*668265263;
@@ -1499,6 +1366,7 @@ function invAdd(id, n = 1){
     }
 
         addEventListener("mousedown", (e) => {
+          if (inventoryOpen) return;    // ⬅ added
           if (!pointerLocked) return;
           const p = pick(REACH_DISTANCE);
           if (!p.hit) return;
@@ -1689,15 +1557,3 @@ function invAdd(id, n = 1){
   </script>
 </body>
 </html>
-
-
-
-function consumeFromHotbar(index, qty=1){
-  const i = Math.max(0, Math.min(8, index|0));
-  const s = INV.slots[i];
-  if (!s || s.id==null || s.count<=0) return false;
-  s.count -= qty;
-  if (s.count <= 0){ s.id = null; s.count = 0; }
-  if (typeof buildHotbar === 'function') buildHotbar();
-  return true;
-}
