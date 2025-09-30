@@ -74,6 +74,7 @@
     // World management
     let GRID_RADIUS = 4;
     let BUILDS_PER_FRAME = 12;
+
     /* ===== Movement tuning ===== */
     let RUN_MULT      = 1.3;  // sprint factor (Z)
     let CROUCH_MULT   = 0.5;  // crouch factor (Shift)
@@ -101,7 +102,7 @@
       [BLOCK.LOG]:   "oak_log",
       [BLOCK.LEAVES]:"oak_leaves",
     };
-    
+
     // registry entries (what MC would call “item defs”)
     const ITEM_REG = new Map([
       ["air",        { id:"air",        maxStack:64, tags:new Set(["air"]) }],
@@ -112,21 +113,21 @@
       ["oak_log",    { id:"oak_log",    maxStack:64, tags:new Set(["block","log","wood"]) }],
       ["oak_leaves", { id:"oak_leaves", maxStack:64, tags:new Set(["block","leaves"]) }],
     ]);
-    
+
     // helpers
     function itemIdFromBlockId(numId){
       const name = BLOCK_NAME[numId] || "air";
       return name;
     }
-    
+
     function getItemDef(itemId){
       return ITEM_REG.get(itemId) || ITEM_REG.get("air");
     }
-    
+
     function maxStackOf(itemId){
       return getItemDef(itemId).maxStack ?? 64;
     }
-    
+
     // stackability rule (same id + no NBT yet)
     function canStackTogether(a, b){
       if (!a || !b) return false;
@@ -934,9 +935,9 @@
 
     /* ===== Player & Picking & Physics ===== */
     const player = {
-      pos: new THREE.Vector3(0, 60, 0),
+      pos: new THREE.Vector3(0, 30, 0),
       vel: new THREE.Vector3(),
-      size: new THREE.Vector3(0.6, 1.1, 0.6),
+      size: new THREE.Vector3(0.6, 1.2, 0.6),
       grounded: false
     };
     function eyePos(){ return player.pos.clone().add(new THREE.Vector3(0, player.size.y*0.75, 0)); }
