@@ -1599,6 +1599,7 @@
     }
 
         addEventListener("mousedown", (e) => {
+          if (inventoryOpen) return;    // ⬅ added
           if (!pointerLocked) return;
           const p = pick(REACH_DISTANCE);
           if (!p.hit) return;
