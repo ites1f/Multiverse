@@ -17,6 +17,10 @@
     #cross:before, #cross:after { content: ""; position: absolute; background: #e9eefc; }
     #cross:before { left: 8px; top: 0; width: 2px; height: 18px; }
     #cross:after  { top: 8px; left: 0; height: 2px; width: 18px; }
+    .hotCell.selected {
+      outline: 2px solid yellow;
+    }
+
   </style>
 </head>
 <body>
@@ -1376,6 +1380,14 @@
         if (BLOCK_NAME[num] === itemId) return Number(num);
       }
       return BLOCK.STONE; // fallback
+    }
+    // add this near your UI code (after hotbar is built)
+    function moveSelector(i){
+      const slots = document.querySelectorAll("#hotbarSlots .hotCell");
+      slots.forEach((slot, idx)=>{
+        if (idx === i) slot.classList.add("selected");
+        else slot.classList.remove("selected");
+      });
     }
 
     // --- Fixed timestep loop ---
