@@ -277,14 +277,6 @@
 
     const info = document.getElementById("info");
 
-    /* ===== Texture atlas =====
-       Put atlas.png in same folder. Assumed 16x16 tiles; change TILES if different.
-       Tile assignments:
-         stone: (0,0)
-         dirt:  (1,0)
-         grass: top(2,0) side(3,0) bottom(1,0)
-         glass: (0,1)  (adjust if yours is elsewhere)
-    */
     const atlas = new THREE.TextureLoader().load("atlas.png",
       () => console.log("[atlas] loaded", atlas.image?.width, "x", atlas.image?.height),
       undefined,
@@ -448,8 +440,8 @@
     bind("jSlider",   v => JUMP_VEL=v);
     bind("wSlider",   v => WALK=v);
     bind("rSlider",   v => { GRID_RADIUS = v|0; scheduleGridRefresh(); }, v=>v|0);
-  
     bind("bSlider",   v => { BUILDS_PER_FRAME = v|0; }, v=>v|0);
+
     /* ===== Noise ===== */
     function hash2i(x, y) {
       let h = x*374761393 + y*668265263;
@@ -794,6 +786,45 @@
       scene.add(c.mesh);
     }
     /* ===== World management ===== */
+    
+    /* Strong break that always rebuilds the mesh */
+    function breakBlockAt(wx, wy, wz){
+      // make sure we address exact voxel cells
+      wx = Math.floor(wx); wy = Math.floor(wy); wz = Math.floor(wz);
+    
+      const bid = getBlock(wx, wy, wz);
+      // Early out if it's air or unbreakable
+      const def = (typeof BLOCK_BY_ID !== "undefined") ? BLOCK_BY_ID[bid] : null;
+      if (bid === BLOCK.AIR || (def && def.break === false)) return;
+    
+      // Apply drop(s)
+      const drops = typeof getDrops === "function" ? getDrops(bid) : [{ id: bid, count: 1 }];
+    
+      // Remove the block
+      setBlock(wx, wy, wz, BLOCK.AIR);
+    
+      // Force the owning chunk to rebuild (important!)
+      try {
+        const cx = Math.floor(wx / CHUNK.X), cz = Math.floor(wz / CHUNK.Z);
+        const ch = chunks.get(key(cx, cz));
+        if (ch){
+          ch.dirty = true;
+          if (typeof enqueueBuild === "function") enqueueBuild(ch);
+          if (typeof markNeighborsDirty === "function") markNeighborsDirty(cx, cz);
+        }
+      } catch (e){ /* noop */ }
+    
+      // Add drops to inventory (stacking)
+      if (typeof invAdd === "function"){
+        for (const drop of drops){
+          invAdd(drop.id, drop.count);
+        }
+      }
+    }
+    function tryConsumeSelected(){
+      // skip
+      return true;
+    }
     let lastChunkX = Infinity, lastChunkZ = Infinity;
     function ensureChunk(cx,cz){
       const k = key(cx,cz);
