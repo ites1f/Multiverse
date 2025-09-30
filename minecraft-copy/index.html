@@ -228,8 +228,75 @@
       }
       return left;
     }
+    /* ===== STEP 3: Containers + Events (barebones) ===== */
 
-    // expose for console poking
+    /* 3.1) Slot helper (uniform shape) */
+    function makeEmptySlot(){ return { stack: makeStack(null,0) }; }
+
+    /* 3.2) Tiny event emitter (no deps) */
+    function makeEmitter(){
+      const m = new Map();
+      return {
+        on(ev, fn){ (m.get(ev) || m.set(ev, new Set()).get(ev)).add(fn); return () => this.off(ev, fn); },
+        off(ev, fn){ m.get(ev)?.delete(fn); },
+        emit(ev, payload){ m.get(ev)?.forEach(fn=>fn(payload)); }
+      };
+    }
+
+    /* 3.3) Array-backed Container */
+    class ArrayContainer {
+      constructor(size, name="container"){
+        this._name = name;
+        this._slots = Array.from({length:size}, makeEmptySlot);
+        this.events = makeEmitter();  // emits: "slotsChanged", payload: indices[]
+      }
+      size(){ return this._slots.length; }
+      get(i){ return this._slots[i]; }
+      set(i, stack){
+        const s = this._slots[i];
+        if (!s) return;
+        s.stack = isEmpty(stack) ? makeStack(null,0) : makeStack(stack.id, stack.count, stack.nbt);
+        this.events.emit("slotsChanged", [i]);
+      }
+      /** mutate-friendly: call this when you changed counts inside a slot */
+      touch(i){ this.events.emit("slotsChanged", [i]); }
+    
+      /** batch notify (for multiple indices at once) */
+      notify(indices){ if (indices?.length) this.events.emit("slotsChanged", indices); }
+    
+      /** iterate */
+      forEach(cb){ this._slots.forEach((s, i)=>cb(s, i)); }
+    }
+
+    /* 3.4) PlayerInventory (hotbar + backpack + selection) */
+    class PlayerInventory {
+      constructor(){
+        this.hotbar   = new ArrayContainer(9,  "hotbar");
+        this.backpack = new ArrayContainer(27, "backpack");
+        this.selectedIndex = 0; // 0..8
+      }
+      getSelectedSlot(){ return this.hotbar.get(this.selectedIndex); }
+      select(n){
+        const clamped = Math.max(0, Math.min(8, n|0));
+        if (clamped !== this.selectedIndex){
+          this.selectedIndex = clamped;
+          // UI can listen to this if needed
+          this.onSelectChanged?.(this.selectedIndex);
+        }
+      }
+      cycle(dir){ this.select((this.selectedIndex + (dir>0?1:-1) + 9) % 9); }
+    }
+
+    /* 3.5) Make a single global-ish instance for now */
+    const INV3 = new PlayerInventory();
+
+
+
+
+    /* expose for console poking */
+    window.ArrayContainer   = ArrayContainer;
+    window.PlayerInventory  = PlayerInventory;
+    window.INV3             = INV3;
     window.makeStack          = makeStack;
     window.isEmpty            = isEmpty;
     window.spaceLeft          = spaceLeft;
@@ -244,6 +311,11 @@
     window.maxStackOf        = maxStackOf;
     window.canStackTogether  = canStackTogether;
     window.BLOCK             = BLOCK;
+
+
+
+
+
     /* ===== Day–Night ===== */
     let dayTime = 0; // 0..1
     function updateSun(dt){
@@ -1233,6 +1305,78 @@
 
     /* ===== Startup & Loop ===== */
     regenAll();
+    /* ===== STEP 3 hooks: wire containers -> your existing UI ===== */   
+
+    // 3.h1) hotbar: update only changed cells
+    INV3.hotbar.events.on("slotsChanged", (idxs)=>{
+      const icons  = document.querySelectorAll("#hotbarSlots .hotIcon");
+      const counts = document.querySelectorAll("#hotbarSlots .hotCount");
+      for (const i of idxs){
+        const slot  = INV3.hotbar.get(i);
+        const stack = slot?.stack;
+        const icon  = icons[i];
+        const lbl   = counts[i];
+        if (!icon || !lbl) continue;    
+
+        if (!stack || !stack.id || stack.count <= 0){
+          icon.style.backgroundPosition = "";
+          lbl.textContent = "";
+        } else {
+          // reuse your atlas helper
+          setIconBG(icon, blockNumFromItemId(stack.id));
+          lbl.textContent = (stack.count > 1) ? String(stack.count) : "";
+        }
+      }
+    });   
+
+    // 3.h2) backpack grid: update only changed cells
+    INV3.backpack.events.on("slotsChanged", (idxs)=>{
+      for (const i of idxs){
+        const cell = document.querySelector(`#invBackpack [data-key="bag:${i}"]`);
+        if (!cell) continue;
+        const icon = cell.querySelector(".invIcon");
+        const lbl  = cell.querySelector(".invCount");
+        const stack = INV3.backpack.get(i)?.stack;    
+
+        if (!stack || !stack.id || stack.count <= 0){
+          icon.style.backgroundPosition = "";
+          lbl.textContent = "";
+        } else {
+          setIconBG(icon, blockNumFromItemId(stack.id));
+          lbl.textContent = (stack.count > 1) ? String(stack.count) : "";
+        }
+      }
+    });   
+
+    // 3.h3) drive selector when selection changes
+    INV3.onSelectChanged = (i)=>{
+      moveSelector(i);
+      // optional: set CURRENT_BLOCK to match selected stack (if it’s a block)
+      const st = INV3.getSelectedSlot()?.stack;
+      if (st && st.id){
+        const bnum = blockNumFromItemId(st.id);
+        if (Number.isFinite(bnum)) CURRENT_BLOCK = bnum;
+      }
+    };    
+
+    // 3.h4) keep your 1..9 keys/wheel in sync with INV3 selection
+    addEventListener("keydown", (e)=>{
+      if (e.repeat) return;
+      const d = e.keyCode - 49; // '1' => 0
+      if (d>=0 && d<=8){ INV3.select(d); }
+    });
+    addEventListener("wheel",(e)=>{
+      INV3.cycle(e.deltaY>0 ? 1 : -1);
+    });   
+
+    // 3.h5) helper: itemId("stone") -> BLOCK numeric (for setIconBG/CURRENT_BLOCK)
+    function blockNumFromItemId(itemId){
+      // uses BLOCK_NAME from step 1
+      for (const num in BLOCK_NAME){
+        if (BLOCK_NAME[num] === itemId) return Number(num);
+      }
+      return BLOCK.STONE; // fallback
+    }
 
     // --- Fixed timestep loop ---
     let last = performance.now();
