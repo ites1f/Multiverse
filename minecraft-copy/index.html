@@ -136,6 +136,110 @@
       // (later: compare NBT/damage/enchants)
       return true;
     }
+    /* ===== STEP 2: ItemStack helpers (minimal, MC-style) ===== */
+    // factory (safe normalize)
+    function makeStack(itemId = null, count = 0, nbt = null){
+      if (!itemId || count <= 0) return { id:null, count:0, nbt:null };
+      const max = maxStackOf(itemId) ?? 64;
+      return { id: itemId, count: Math.min(count|0, max), nbt: nbt ?? null };
+    }
+
+    // queries
+    function isEmpty(stack){ return !stack || !stack.id || stack.count <= 0; }
+    function spaceLeft(stack){
+      if (isEmpty(stack)) return 0;           // empty slots don't have "space" for merge; use "fill empty" step for that
+      const max = maxStackOf(stack.id) ?? 64;
+      return Math.max(0, max - (stack.count|0));
+    }
+
+    // stackability (reuse registry rule)
+    function canStack(a, b){
+      if (isEmpty(a) || isEmpty(b)) return false;
+      return canStackTogether(a, b);          // same id (+ same NBT later)
+    }
+
+    // mutation helpers (intentionally small + explicit)
+
+    // take up to n items out of `stack`, returns how many actually taken.
+    // (mutates `stack.count`, clears id if it hits 0)
+    function takeFrom(stack, n){
+      if (isEmpty(stack) || n <= 0) return 0;
+      const k = Math.min(stack.count|0, n|0);
+      stack.count -= k;
+      if (stack.count <= 0){ stack.id = null; stack.count = 0; stack.nbt = null; }
+      return k;
+    }
+
+    // put up to `srcCount` items into `dst` (must be same-id stack, not empty slot).
+    // returns leftover (0 means fully merged).
+    function mergeInto(dst, srcCount){
+      if (!dst || srcCount <= 0) return srcCount|0;
+      const room = spaceLeft(dst);
+      const mv   = Math.min(room, srcCount|0);
+      dst.count  = (dst.count|0) + mv;
+      return (srcCount|0) - mv;
+    }
+
+    // split half (ceil) from slot, returning a NEW stack; mutates the original.
+    function splitHalf(slot){
+      if (isEmpty(slot)) return makeStack(null,0);
+      const give = Math.ceil(slot.count / 2);
+      slot.count -= give;
+      const out = makeStack(slot.id, give, slot.nbt);
+      if (slot.count <= 0){ slot.id = null; slot.nbt = null; }
+      return out;
+    }
+
+    // swap stacks wholesale
+    function swapStacks(a, b){
+      const t = { id:a.id, count:a.count, nbt:a.nbt };
+      a.id = b.id; a.count = b.count; a.nbt = b.nbt;
+      b.id = t.id; b.count = t.count; b.nbt = t.nbt;
+    }
+
+    /* (optional) tiny pure helper used by quick-move later:
+       try to merge into partials (same id), return leftover count.
+       `slots` is an array of Slot-like {stack:{id,count}}.
+    */
+    function mergeIntoPartials(slots, incoming){
+      if (isEmpty(incoming)) return 0;
+      let left = incoming.count|0;
+      for (const s of slots){
+        if (left <= 0) break;
+        if (!s || isEmpty(s.stack)) continue;
+        if (!canStack(s.stack, incoming)) continue;
+        left = mergeInto(s.stack, left);
+      }
+      return left;
+    }
+
+    /* (optional) put into first empty slots; returns leftover count. */
+    function fillEmpties(slots, incoming){
+      if (isEmpty(incoming)) return 0;
+      let left = incoming.count|0;
+      for (const s of slots){
+        if (left <= 0) break;
+        if (!s || !isEmpty(s.stack)) continue;
+        // place fresh stack here (respect maxStack)
+        const max = maxStackOf(incoming.id) ?? 64;
+        const put = Math.min(max, left);
+        s.stack = makeStack(incoming.id, put, incoming.nbt);
+        left -= put;
+      }
+      return left;
+    }
+
+    // expose for console poking
+    window.makeStack          = makeStack;
+    window.isEmpty            = isEmpty;
+    window.spaceLeft          = spaceLeft;
+    window.canStack           = canStack;
+    window.takeFrom           = takeFrom;
+    window.mergeInto          = mergeInto;
+    window.splitHalf          = splitHalf;
+    window.swapStacks         = swapStacks;
+    window.mergeIntoPartials  = mergeIntoPartials;
+    window.fillEmpties        = fillEmpties;
     window.itemIdFromBlockId = itemIdFromBlockId;
     window.maxStackOf        = maxStackOf;
     window.canStackTogether  = canStackTogether;
