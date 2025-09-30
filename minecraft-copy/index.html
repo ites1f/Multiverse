@@ -79,6 +79,61 @@
       box-shadow: 0 0 0 2px rgba(0,0,0,.6) inset, 0 0 6px rgba(255,255,255,.35);
     }
 
+    /* ===== Inventory UI ===== */
+    #invUI {
+      position: fixed; inset: 0;
+      display: none;  /* toggled by JS */
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,.55);
+      z-index: 50;
+    }
+    .invPanel {
+      user-select: none;
+      background: rgba(15,20,35,.92);
+      border: 2px solid rgba(255,255,255,.1);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 12px 50px rgba(0,0,0,.35);
+    }
+    .invGrid {
+      display: grid; gap: 6px;
+      --cell: 40px;
+    }
+    .invRow   { display: grid; grid-template-columns: repeat(9, var(--cell)); gap: 6px; }
+    .invSlot, .invHotSlot {
+      width: var(--cell); height: var(--cell);
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 6px;
+      display: grid; place-items: center;
+      position: relative;
+    }
+    .invIcon {
+      width: 30px; height: 30px;
+      image-rendering: pixelated;
+      background-image: url("atlas.png");
+      background-repeat: no-repeat;
+      background-size: calc(var(--tiles-x,4) * 100%) calc(var(--tiles-y,4) * 100%);
+    }
+    .invCount {
+      position: absolute; right: 4px; bottom: 2px;
+      font: 12px ui-monospace, Consolas, monospace;
+      color: #fff; text-shadow: 1px 1px 0 #000, -1px 0 0 #000, 0 -1px 0 #000;
+      opacity: .95;
+    }
+    .invTitle {
+      font: 14px ui-monospace, Consolas, monospace;
+      color: #cfe6ff; margin: 2px 2px 8px 2px;
+      opacity: .85;
+    }
+    /* cursor stack */
+    #invCursor {
+      position: fixed; pointer-events: none; z-index: 60; display: none;
+      translate: -50% -50%;
+    }
+    #invCursor .invIcon { width: 34px; height: 34px; }
+    #invCursor .invCount { right: 0; bottom: -2px; font-size: 13px; }
+
   </style>
 </head>
 <body>
@@ -89,7 +144,30 @@
     <img id="hotbarSel" src="ui/selector.png" alt="" onerror="this.dataset.css='true'">
   </div>
 
+  <!-- INVENTORY UI -->
+  <div id="invUI">
+    <div class="invPanel">
+      <div class="invTitle">Inventory (E to close)</div>
+      <!-- Backpack: 3 rows x 9 -->
+      <div id="invBackpack" class="invGrid">
+        <div class="invRow" id="invRow0"></div>
+        <div class="invRow" id="invRow1"></div>
+        <div class="invRow" id="invRow2"></div>
+      </div>
+      <div class="invTitle" style="margin-top:10px;">Hotbar</div>
+      <div class="invRow" id="invHotbar"></div>
+    </div>
+  </div>
+  
+  <!-- Cursor “ghost” when dragging a stack -->
+  <div id="invCursor">
+    <div class="invSlot">
+      <div class="invIcon"></div>
+      <div class="invCount"></div>
+    </div>
+  </div>
 
+  <!-- HUD UI -->
   <div id="hud">
     <div><b>Voxel Prototype</b> — click to lock mouse • F3 toggles HUD</div>
     <div>WASD move • Space jump • Shift sprint • Left: break • Right: place • 1–4 block • R: regen</div>
