@@ -90,52 +90,6 @@
       [BLOCK.LEAVES]: true,
       [BLOCK.GLASS]: true,
     };
-    /* ===== STEP 1: Item Registry (barebones, MC-style) ===== */
-    // numeric id ↔ string id (optional sugar)
-    const BLOCK_NAME = {
-      [BLOCK.AIR]:   "air",
-      [BLOCK.STONE]: "stone",
-      [BLOCK.GRASS]: "grass",
-      [BLOCK.DIRT]:  "dirt",
-      [BLOCK.GLASS]: "glass",
-      [BLOCK.LOG]:   "oak_log",
-      [BLOCK.LEAVES]:"oak_leaves",
-    };
-    
-    // registry entries (what MC would call “item defs”)
-    const ITEM_REG = new Map([
-      ["air",        { id:"air",        maxStack:64, tags:new Set(["air"]) }],
-      ["stone",      { id:"stone",      maxStack:64, tags:new Set(["block"]) }],
-      ["dirt",       { id:"dirt",       maxStack:64, tags:new Set(["block"]) }],
-      ["grass",      { id:"grass",      maxStack:64, tags:new Set(["block"]) }],
-      ["glass",      { id:"glass",      maxStack:64, tags:new Set(["block","transparent"]) }],
-      ["oak_log",    { id:"oak_log",    maxStack:64, tags:new Set(["block","log","wood"]) }],
-      ["oak_leaves", { id:"oak_leaves", maxStack:64, tags:new Set(["block","leaves"]) }],
-    ]);
-    
-    // helpers
-    function itemIdFromBlockId(numId){
-      const name = BLOCK_NAME[numId] || "air";
-      return name;
-    }
-    
-    function getItemDef(itemId){
-      return ITEM_REG.get(itemId) || ITEM_REG.get("air");
-    }
-    
-    function maxStackOf(itemId){
-      return getItemDef(itemId).maxStack ?? 64;
-    }
-    
-    // stackability rule (same id + no NBT yet)
-    function canStackTogether(a, b){
-      if (!a || !b) return false;
-      if (!a.id || !b.id) return false;
-      if (a.id !== b.id)  return false;
-      // (later: compare NBT/damage/enchants)
-      return true;
-    }
-
     /* ===== Day–Night ===== */
     let dayTime = 0; // 0..1
     function updateSun(dt){
