@@ -1035,6 +1035,7 @@
       renderer.setSize(innerWidth, innerHeight);
     });
     document.body.addEventListener("click", () => {
+      if (inventoryOpen) return;   // don’t lock if inventory is open
       if (!pointerLocked) renderer.domElement.requestPointerLock();
     });
     document.addEventListener("pointerlockchange", () => {
