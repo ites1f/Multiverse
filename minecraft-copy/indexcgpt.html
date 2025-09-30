@@ -484,7 +484,6 @@
           CURSOR.id=null; CURSOR.count=0; paintCursor();
           refreshInventoryUI();
           buildHotbar(); // refresh counts/icons
-          buildInventory();
 
         }
       }
@@ -686,8 +685,6 @@
         applyBetterFps(true);         // actually apply the preset
       }
     });
-    /* ===== Backpack data (27 slots) ===== */
-    INV.backpack = INV.backpack || Array.from({length:27}, ()=>({id:null,count:0}));
 
     /* Cursor-held stack while dragging */
     const CURSOR = { id:null, count:0 };
@@ -1599,7 +1596,8 @@
     }
 
         addEventListener("mousedown", (e) => {
-          if (!pointerLocked) return;
+            if (inventoryOpen) return;
+if (!pointerLocked) return;
           const p = pick(REACH_DISTANCE);
           if (!p.hit) return;
         
