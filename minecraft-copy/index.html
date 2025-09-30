@@ -20,9 +20,6 @@
   </style>
 </head>
 <body>
-  <!-- HOTBAR UI -->
-  <!-- INVENTORY UI -->  
-  <!-- Cursor “ghost” when dragging a stack -->
   <!-- HUD UI -->
   <div id="hud">
     <div><b>Voxel Prototype</b> — click to lock mouse • F3 toggles HUD</div>
@@ -112,352 +109,6 @@
       const fogCol = mix(nightCol, dayCol, k*0.9+0.1);
       scene.fog.color.copy(fogCol);
     }
-
-    /* ===== Hotbar / Inventory (visual) ===== */
-    /* If you already have INV, keep it; otherwise use this starter: */
-    const INV = window.INV || {
-      slots: [
-        { id: BLOCK.STONE, count: 64 },
-        { id: BLOCK.GRASS, count: 64 },
-        { id: BLOCK.DIRT,  count: 64 },
-        { id: BLOCK.GLASS, count: 64 },
-        { id: BLOCK.LOG, count: 64 },
-        { id: BLOCK.LEAVES, count: 64 },
-        { id: BLOCK.STONE,  count: 64 },
-        { id: BLOCK.STONE, count: 64 },
-        { id: BLOCK.STONE, count: 64 },
-      ],
-      sel: 0
-    };
-    CURRENT_BLOCK = INV.slots[INV.sel].id;
-    // --- Inventory consume helper (kept OFF by default) ---
-    const CONSUME = true; // set to true if you want items to decrease when placing
-
-    function tryConsumeSelected(){
-      if (!CONSUME) return true;  // skip if consuming is disabled
-      const s = INV.slots[INV.sel];
-      if (!s || s.count <= 0) return false;      // nothing left to place
-      s.count--;                                 // consume one
-    
-      // Update the number label in the hotbar UI
-      const lbl = document.querySelectorAll("#hotbarSlots .hotCount")[INV.sel];
-      if (lbl) lbl.textContent = (s.count > 1) ? String(s.count) : "";
-      return true;
-    }
-    const InvUI = {
-      root: document.getElementById("invUI"),
-      rows: [ document.getElementById("invRow0"),
-              document.getElementById("invRow1"),
-              document.getElementById("invRow2") ],
-      hot:  document.getElementById("invHotbar"),
-      cursor: document.getElementById("invCursor")
-    };
-
-    /* Build static cells */
-    function buildInventory(){
-      // Backpack 27
-      for (let r=0;r<3;r++){
-        const row = InvUI.rows[r]; row.innerHTML = "";
-        for (let c=0;c<9;c++){
-          const i = r*9 + c;
-          const el = document.createElement("div"); el.className = "invSlot"; el.dataset.key = "bag:"+i;
-          el.innerHTML = `<div class="invIcon"></div><div class="invCount"></div>`;
-          row.appendChild(el);
-        }
-      }
-      // Hotbar 9
-      InvUI.hot.innerHTML = "";
-      for (let i=0;i<9;i++){
-        const el = document.createElement("div"); el.className = "invHotSlot"; el.dataset.key = "hotbar:"+i;
-        el.innerHTML = `<div class="invIcon"></div><div class="invCount"></div>`;
-        InvUI.hot.appendChild(el);
-      }
-      refreshInventoryUI();
-    }
-    // Once at startup (after buildInventory()):
-    document.getElementById("invUI").addEventListener("click", onSlotClick);
-    document.getElementById("invHotbar").addEventListener("click", onSlotClick);
-
-
-    /* Update one cell quickly ("bag:12" or "hotbar:3") */
-    function updateOneUI(key){
-      const el = InvUI.root.querySelector(`[data-key="${key}"]`);
-      if (!el) return;
-      const icon = el.querySelector(".invIcon");
-      const cnt  = el.querySelector(".invCount");
-      const [kind, idxStr] = key.split(":"); const i = +idxStr;
-      const s = (kind==="bag") ? INV.backpack[i] : INV.slots[i];
-      if (slotIsEmpty(s)){ icon.style.backgroundPosition=""; cnt.textContent=""; return; }
-      setIconBG(icon, s.id);
-      cnt.textContent = (s.count>1) ? String(s.count) : "";
-    }
-
-    /* Full refresh (rare) */
-    function refreshInventoryUI(){
-      for (let i=0;i<27;i++) updateOneUI("bag:"+i);
-      for (let i=0;i<9;i++)  updateOneUI("hotbar:"+i);
-    }
-
-    /* Cursor ghost follow */
-    addEventListener("mousemove",(e)=>{
-      if (InvUI.root.style.display !== "flex") return;
-      InvUI.cursor.style.left = e.clientX+"px";
-      InvUI.cursor.style.top  = e.clientY+"px";
-    });
-
-    /* Click/drag behavior */
-    function getSlotByKey(key){
-      const [kind, idxStr] = key.split(":"); const i = +idxStr;
-      return (kind==="bag") ? INV.backpack[i] : INV.slots[i];
-    }
-    function onSlotClick(ev){
-      const cell = ev.target.closest("[data-key]");
-      if (!cell) return;
-      const slot = getSlotByKey(cell.dataset.key);
-      const isBackpack = cell.dataset.key.startsWith("bag:");
-      if (ev.shiftKey){
-        // Quick move between bag <-> hotbar
-        quickMove(slot, isBackpack);
-        updateOneUI(cell.dataset.key);
-        return;
-      }
-      if (slotIsEmpty(slot)){
-        // place cursor into this empty slot
-        if (!slotIsEmpty(CURSOR)){
-          // drop as much as fits
-          if (slotIsEmpty(slot)){
-            slot.id = CURSOR.id; slot.count = Math.min(MAX_STACK, CURSOR.count);
-            CURSOR.count -= slot.count;
-            if (CURSOR.count<=0){ CURSOR.id=null; CURSOR.count=0; InvUI.cursor.style.display="none"; }
-            updateOneUI(cell.dataset.key);
-          }
-        }
-      } else {
-        if (slotIsEmpty(CURSOR)){
-          // pick up entire stack
-          CURSOR.id = slot.id; CURSOR.count = slot.count;
-          slot.id=null; slot.count=0;
-          updateOneUI(cell.dataset.key);
-          paintCursor();
-        } else {
-          // same item? merge; else swap
-          if (CURSOR.id===slot.id){
-            CURSOR.count = tryMergeInto(slot, CURSOR.count);
-            updateOneUI(cell.dataset.key);
-            if (CURSOR.count<=0){ CURSOR.id=null; CURSOR.count=0; InvUI.cursor.style.display="none"; }
-            else paintCursor();
-          } else {
-            // swap
-            const tmp = {id:slot.id,count:slot.count};
-            slot.id = CURSOR.id; slot.count = CURSOR.count;
-            CURSOR.id = tmp.id; CURSOR.count = tmp.count;
-            updateOneUI(cell.dataset.key);
-            paintCursor();
-          }
-        }
-      }
-    }
-    function paintCursor(){
-      const cur = InvUI.cursor;
-      const icon = cur.querySelector(".invIcon");
-      const cnt  = cur.querySelector(".invCount");
-      if (slotIsEmpty(CURSOR)){ cur.style.display="none"; return; }
-      setIconBG(icon, CURSOR.id);
-      cnt.textContent = (CURSOR.count>1)? String(CURSOR.count) : "";
-      cur.style.display = "block";
-    }
-
-    /* Toggle inventory (E) */
-    let inventoryOpen = false;
-    function toggleInventory(force){
-      const open = (typeof force==="boolean") ? force : !inventoryOpen;
-      inventoryOpen = open;
-      InvUI.root.style.display = open ? "flex" : "none";
-    
-      // enable clicking the hotbar only when inventory is open
-      document.getElementById("hotbarUI").style.pointerEvents = open ? "auto" : "none";
-    
-      // stop/resume pointer lock & block gameplay clicks while open
-      if (open && document.pointerLockElement){
-        document.exitPointerLock();
-      }
-      if (!open){
-        // drop any cursor stack back to inventory if still holding
-        if (!slotIsEmpty(CURSOR)){
-          // try to shove into backpack/hotbar
-          const temp = { id: CURSOR.id, count: CURSOR.count };
-          quickMove(temp, /*isBackpack*/false); // prefer hotbar first
-          if (temp.count>0){
-            // then backpack
-            const fake = { id: temp.id, count: temp.count };
-            quickMove(fake, /*isBackpack*/true);
-          }
-          CURSOR.id=null; CURSOR.count=0; paintCursor();
-          refreshInventoryUI();
-          buildInventory();
-
-        }
-      }
-    }
-
-    /* ===== Inventory: real drops & stacking ===== */
-    const MAX_STACK = 64;
-
-    /* ensure 9 slots always exist */
-    for (let i=0; i<9; i++){
-      if (!INV.slots[i]) INV.slots[i] = { id: null, count: 0 };
-    }
-
-    /* update a single slot's count label fast */
-    function updateHotbarSlotUI(i){
-      const label = document.querySelectorAll("#hotbarSlots .hotCount")[i];
-      const s = INV.slots[i];
-      if (!label || !s) return;
-      label.textContent = (s.count > 1) ? String(s.count) : "";
-    }
-
-    /* add items into inventory (merge then fill). Returns leftover count (0 if all added). */
-    function invAdd(itemId, count){
-      if (!itemId || count <= 0) return 0;
-    
-      // 1) merge into partial stacks
-      for (let i=0; i<INV.slots.length && count>0; i++){
-        const s = INV.slots[i];
-        if (s.id === itemId && s.count < MAX_STACK){
-          const space = MAX_STACK - s.count;
-          const add = Math.min(space, count);
-          s.count += add;
-          count -= add;
-          updateHotbarSlotUI(i);
-        }
-      }
-      // 2) fill empty slots
-      for (let i=0; i<INV.slots.length && count>0; i++){
-        const s = INV.slots[i];
-        if (s.id == null || s.count === 0){
-          const add = Math.min(MAX_STACK, count);
-          s.id = itemId; s.count = add;
-          count -= add;
-          // also update the icon if this slot was empty before
-          const icon = document.querySelectorAll("#hotbarSlots .hotIcon")[i];
-          if (icon){
-            const {tx,ty} = iconTileFor(itemId);
-            const uStep = 100 / (4-1), vStep = 100 / (4-1); // TILES_X/Y assumed 4
-            icon.style.backgroundPosition = `${tx*uStep}% ${ty*vStep}%`;
-          }
-          updateHotbarSlotUI(i);
-        }
-      }
-      return count; // leftover (if >0, inventory full)
-    }
-
-    /* drop table (what a block gives when broken) */
-    const DROPS = {
-      [BLOCK.STONE]:  BLOCK.STONE,   // (You can switch to COBBLE if you add it)
-      [BLOCK.DIRT]:   BLOCK.DIRT,
-      [BLOCK.GRASS]:  BLOCK.DIRT,    // like MC (no Silk Touch)
-      [BLOCK.GLASS]:  null,          // no drop
-      [BLOCK.LOG]:    BLOCK.LOG,
-      [BLOCK.LEAVES]: null,          // later: chance to drop sapling
-      [BLOCK.SAND]:   BLOCK.SAND,
-      [BLOCK.WATER]:  null,
-      [BLOCK.BEDROCK]:null,
-    };
-    function getDrops(blockId){
-      const d = DROPS[blockId];
-      if (d == null) return [];
-      return [{ id: d, count: 1 }];
-    }
-
-    /* Strong break that always rebuilds the mesh */
-    function breakBlockAt(wx, wy, wz){
-      // make sure we address exact voxel cells
-      wx = Math.floor(wx); wy = Math.floor(wy); wz = Math.floor(wz);
-    
-      const bid = getBlock(wx, wy, wz);
-      // Early out if it's air or unbreakable
-      const def = (typeof BLOCK_BY_ID !== "undefined") ? BLOCK_BY_ID[bid] : null;
-      if (bid === BLOCK.AIR || (def && def.break === false)) return;
-    
-      // Apply drop(s)
-      const drops = typeof getDrops === "function" ? getDrops(bid) : [{ id: bid, count: 1 }];
-    
-      // Remove the block
-      setBlock(wx, wy, wz, BLOCK.AIR);
-    
-      // Force the owning chunk to rebuild (important!)
-      try {
-        const cx = Math.floor(wx / CHUNK.X), cz = Math.floor(wz / CHUNK.Z);
-        const ch = chunks.get(key(cx, cz));
-        if (ch){
-          ch.dirty = true;
-          if (typeof enqueueBuild === "function") enqueueBuild(ch);
-          if (typeof markNeighborsDirty === "function") markNeighborsDirty(cx, cz);
-        }
-      } catch (e){ /* noop */ }
-    
-      // Add drops to inventory (stacking)
-      if (typeof invAdd === "function"){
-        for (const drop of drops){
-          invAdd(drop.id, drop.count);
-        }
-      }
-    }
-
-
-    /* Tell CSS how many tiles across the atlas has (matches your code’s TILES_X/Y) */
-    document.documentElement.style.setProperty("--tiles-x", 4);
-    document.documentElement.style.setProperty("--tiles-y", 4);
-
-    /* Map a block id to its atlas tile (tx,ty) for icon */
-    function iconTileFor(blockId){
-      // Keep in sync with your uvFor() mapping
-      if (blockId === BLOCK.STONE) return {tx:0,ty:0};
-      if (blockId === BLOCK.DIRT)  return {tx:1,ty:0};
-      if (blockId === BLOCK.GRASS) return {tx:2,ty:0};  // use top texture for icon
-      if (blockId === BLOCK.GLASS) return {tx:0,ty:1};
-      // defaults:
-      return {tx:0,ty:0};
-    }
-
-    /* Build and update the hotbar UI */
-    const _hb = {
-      root: document.getElementById("hotbarUI"),
-      slotsWrap: document.getElementById("hotbarSlots"),
-      selImg: document.getElementById("hotbarSel"),
-      cellCenterX: [], // per-slot pixel X for sel image
-    };
-
-    function positionSelector(){
-      const wrap = _hb.slotsWrap, sel = _hb.selImg;
-      if (!wrap || !sel) return;
-    
-      // Compute the bounding boxes of each slot to place the selector
-      const kids = [...wrap.children];
-      const rectWrap = wrap.getBoundingClientRect();
-      kids.forEach((k, idx)=>{
-        const r = k.getBoundingClientRect();
-        const cx = r.left + r.width/2 - rectWrap.left; // within wrap
-        _hb.cellCenterX[idx] = cx;
-      });
-    
-      moveSelector(INV.sel);
-    }
-
-    function moveSelector(index){
-      const sel = _hb.selImg, wrap = _hb.slotsWrap;
-      if (!sel || !wrap) return;
-      const rectWrap = wrap.getBoundingClientRect();
-      const cx = _hb.cellCenterX[index] ?? (rectWrap.width*(index+0.5)/9);
-      sel.style.left = `calc(50% - ${rectWrap.width/2 - cx}px)`;
-      // vertical center already set via CSS (top:50% translate)
-    }
-
-    function selectHotbar(n){
-      INV.sel = Math.max(0, Math.min(8, n));
-      CURRENT_BLOCK = INV.slots[INV.sel].id;
-      moveSelector(INV.sel);
-    }
     // Hide F3 HUD on boot
     addEventListener("DOMContentLoaded", ()=>{
       const hud = document.getElementById("hud");
@@ -470,53 +121,7 @@
         applyBetterFps(true);         // actually apply the preset
       }
     });
-    /* ===== Backpack data (27 slots) ===== */
-    INV.backpack = INV.backpack || Array.from({length:27}, ()=>({id:null,count:0}));
 
-    /* Cursor-held stack while dragging */
-    const CURSOR = { id:null, count:0 };
-
-    /* Helpers */
-    function slotIsEmpty(s){ return !s || s.count<=0 || s.id==null; }
-    function sameItem(a,b){ return a && b && a.id===b.id && a.id!=null; }
-    function canMerge(dst,src){ return sameItem(dst,src) && dst.count < MAX_STACK; }
-
-    /* Merge place: returns leftover count */
-    function tryMergeInto(dst, srcCount){
-      const space = MAX_STACK - dst.count;
-      const mv = Math.min(space, srcCount);
-      dst.count += mv;
-      return srcCount - mv;
-    }
-
-    /* Swap entire stacks */
-    function swapStacks(a,b){ const t={id:a.id,count:a.count}; a.id=b.id; a.count=b.count; b.id=t.id; b.count=t.count; }
-
-    /* Quick-move: bag <-> hotbar */
-    function quickMove(slot, isBackpack){
-      const target = isBackpack ? INV.slots : INV.backpack;
-      // 1) merge into partial stacks first
-      let left = slot.count;
-      for (let i=0;i<target.length && left>0;i++){
-        const s = target[i];
-        if (s.id===slot.id && s.count>0 && s.count<MAX_STACK){
-          left = tryMergeInto(s, left);
-          updateOneUI(isBackpack?("hotbar:"+i):("bag:"+i));
-        }
-      }
-      // 2) fill empties
-      for (let i=0;i<target.length && left>0;i++){
-        const s = target[i];
-        if (slotIsEmpty(s)){
-          s.id = slot.id; s.count = Math.min(MAX_STACK, left);
-          left -= s.count;
-          updateOneUI(isBackpack?("hotbar:"+i):("bag:"+i));
-        }
-      }
-      // remove from source
-      if (left===0){ slot.id=null; slot.count=0; }
-      else { slot.count = left; }
-    }
 
     /* Icon % mapping reused */
     function setIconBG(div, blockId){
@@ -535,23 +140,9 @@
         }
       }
     });
-
-    /* Input: 1..9 keys and mouse wheel */
-    addEventListener("keydown", (e)=>{
-      if (e.repeat) return;
-      const d = e.keyCode - 49; // '1' => 0
-      if (d>=0 && d<=8){ selectHotbar(d); }
-    });
-    addEventListener("wheel",(e)=>{
-      const dir = e.deltaY>0?1:-1;
-      selectHotbar((INV.sel + dir + 9)%9);
-    });
-
     /* Reposition selector on resize */
     addEventListener("resize", positionSelector);
 
-    /* Initial paint */
-    buildInventory();
 
 
 
@@ -818,14 +409,12 @@
       renderer.setSize(innerWidth, innerHeight);
     });
     document.body.addEventListener("click", () => {
-      if (inventoryOpen) return;   // don’t lock if inventory is open
       if (!pointerLocked) renderer.domElement.requestPointerLock();
     });
     document.addEventListener("pointerlockchange", () => {
       pointerLocked = (document.pointerLockElement === renderer.domElement);
     });
     document.addEventListener("mousemove", (e) => {
-      if (inventoryOpen) return;  
       if (!pointerLocked) return;
       const sens = 0.0025, MAX_D = 80;
       const dx = Math.max(-MAX_D, Math.min(MAX_D, e.movementX||0));
@@ -845,7 +434,6 @@
         return;
       }
       if (k === "e"){
-        toggleInventory();
         e.preventDefault();
         return;
       }
@@ -991,7 +579,6 @@
       if(!nc||!nc.generated) return BLOCK.AIR;
       return nc.blocks[idx(nx,ny,nz)];
     }
-    // Biome-aware, defensive, local-only
     // Biome-aware trees using fbm2 that returns 0..1
     function decorateChunkTrees(chunk, worldSeed, noise2D){
       const { cx, cz } = chunk;
@@ -1212,8 +799,6 @@
       c.mesh.receiveShadow = true;
       scene.add(c.mesh);
     }
-
-
     /* ===== World management ===== */
     let lastChunkX = Infinity, lastChunkZ = Infinity;
     function ensureChunk(cx,cz){
@@ -1366,7 +951,6 @@
     }
 
         addEventListener("mousedown", (e) => {
-          if (inventoryOpen) return;    // ⬅ added
           if (!pointerLocked) return;
           const p = pick(REACH_DISTANCE);
           if (!p.hit) return;
