@@ -565,16 +565,40 @@
     }
 
     // 4.5) Attach listeners (L-click only for now)
+    // hotbar
     document.getElementById("hotbarSlots").addEventListener("click", (e)=>{
       const cell = e.target.closest(".hotCell");
       if (!cell) return;
+      e.stopPropagation();
+    
+      if (e.shiftKey){
+        // hotbar -> backpack
+        const idx = [...cell.parentElement.children].indexOf(cell);
+        quickMove(INV3.hotbar, idx, [INV3.backpack]);
+        return;
+      }
+    
+      // normal L-click pick/merge/swap
       handleLeftClickSlot(cell);
     });
+    
+    // backpack
     document.getElementById("invBackpack").addEventListener("click", (e)=>{
       const cell = e.target.closest("[data-key]");
       if (!cell) return;
+      e.stopPropagation();
+    
+      if (e.shiftKey){
+        // backpack -> hotbar
+        const idx = parseInt(cell.dataset.key.slice(4), 10);
+        quickMove(INV3.backpack, idx, [INV3.hotbar]);
+        return;
+      }
+    
+      // normal L-click pick/merge/swap
       handleLeftClickSlot(cell);
     });
+
 //STEP FIVE//
     let invOpen = false;
 
@@ -639,6 +663,40 @@
           icon.style.visibility = "visible";
           setIconBG(icon, blockNumFromItemId(st.id));
           lbl.textContent = (st.count>1) ? String(st.count) : "";
+        }
+      }
+    }
+    //STEP SIX???//
+    function quickMove(containerFrom, indexFrom, targetContainers){
+      const slot = containerFrom.get(indexFrom); if (!slot) return;
+    
+      // nothing to move
+      if (!slot.stack || !slot.stack.id || slot.stack.count <= 0) return;
+    
+      // take a working copy of what's in the slot
+      let moving = makeStack(slot.stack.id, slot.stack.count, slot.stack.nbt);
+    
+      // 1) merge into partials across targets (order matters)
+      for (const cont of targetContainers){
+        moving.count = mergeIntoPartialsIn(cont, moving);
+        if (moving.count <= 0) break;
+      }
+      // 2) fill empties across targets
+      if (moving.count > 0){
+        for (const cont of targetContainers){
+          moving.count = fillEmptiesIn(cont, moving);
+          if (moving.count <= 0) break;
+        }
+      }
+    
+      // update the source slot with leftover (or clear)
+      if (moving.count !== slot.stack.count){
+        const left = moving.count|0;
+        if (left > 0){
+          slot.stack.count = left; // same item, reduced count
+          containerFrom.touch(indexFrom);
+        } else {
+          containerFrom.set(indexFrom, makeStack(null,0));
         }
       }
     }
