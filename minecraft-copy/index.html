@@ -166,6 +166,7 @@
     let isRun = false, isCrouch = false;
     let eyeY = 1.62; // smoothed eye height
     let REACH_DISTANCE = 6;
+    let WORLD_SEED = 12345; // change this number to get a different world
 
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:256, Z:16 };
@@ -1128,7 +1129,7 @@
     bind("bSlider",   v => { BUILDS_PER_FRAME = v|0; }, v=>v|0);
 
     /* ===== Noise ===== */
-    function hash2i(x, y) {
+    function hash2i(x, y, seed=WORLD_SEED) {
       let h = x*374761393 + y*668265263;
       h = (h ^ (h>>13)) * 1274126177;
       return (h>>>0)/0xffffffff;
@@ -1223,7 +1224,7 @@
         }
       }
       // decorate this chunk with trees
-      decorateChunkTrees(c, 12345 /* world seed */, fbm2);
+      decorateChunkTrees(c, WORLD_SEED, fbm2);
       c.generated=true;
       c.dirty=true;
       enqueueBuild(c);
