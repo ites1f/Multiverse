@@ -723,7 +723,7 @@
     window.BLOCK             = BLOCK;
     /* ===== Day–Night ===== */
     let dayTime = 0;                 // 0..1 (fraction of day)
-    const DAY_SECONDS   = 9;        // full day length (tweak)
+    const DAY_SECONDS   = 5*60;        // full day length (tweak)
     const SUN_MIN_ELEV  = -75;        // degrees (sun below horizon at night)
     const SUN_MAX_ELEV  = 75;        // degrees (noon height)
 
@@ -846,7 +846,7 @@
     skyUniforms.turbidity.value = 10;
     skyUniforms.rayleigh.value = 2;
     skyUniforms.mieCoefficient.value = 0.005;
-    skyUniforms.mieDirectionalG.value = 10;
+    skyUniforms.mieDirectionalG.value = 3;
 
     // --- Sun (directional light with shadows) ---
     const sunLight = new THREE.DirectionalLight(0xffe9a9, 0.8); // warm pale yellow
