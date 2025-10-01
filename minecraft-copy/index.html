@@ -416,7 +416,18 @@
       }
     });
 
-
+    // 4x4 atlas icon picker for the hotbar (tile coords)
+    function iconTileFor(blockId){
+      // match your UV_TILES setup
+      if (blockId === BLOCK.STONE)  return { tx:0, ty:0 };
+      if (blockId === BLOCK.GRASS)  return { tx:2, ty:0 }; // use top face for icon
+      if (blockId === BLOCK.DIRT)   return { tx:1, ty:0 };
+      if (blockId === BLOCK.GLASS)  return { tx:0, ty:1 };
+      if (blockId === BLOCK.LOG)    return { tx:1, ty:1 };
+      if (blockId === BLOCK.LEAVES) return { tx:2, ty:1 };
+      return { tx:0, ty:0 };
+    }
+    
     /* Icon % mapping reused */
     function setIconBG(div, blockId){
       const {tx,ty} = iconTileFor(blockId ?? BLOCK.STONE);
