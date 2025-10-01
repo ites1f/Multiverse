@@ -605,7 +605,46 @@
     // while inventory is open, ignore movement input
     function movementEnabled(){ return !invOpen && pointerLocked; }
 
-    /* expose for console poking */
+
+    function repaintHotbar(){
+      const icons  = document.querySelectorAll("#hotbarSlots .hotIcon");
+      const counts = document.querySelectorAll("#hotbarSlots .hotCount");
+      for (let i=0; i<9; i++){
+        const icon = icons[i], lbl = counts[i];
+        const st = INV3.hotbar.get(i)?.stack;
+        if (!icon || !lbl) continue;
+        if (!st || !st.id || st.count<=0){
+          icon.style.visibility = "hidden";
+          lbl.textContent = "";
+        } else {
+          icon.style.visibility = "visible";
+          setIconBG(icon, blockNumFromItemId(st.id));
+          lbl.textContent = (st.count>1) ? String(st.count) : "";
+        }
+      }
+    }
+
+    function repaintBackpack(){
+      for (let i=0; i<27; i++){
+        const cell = document.querySelector(`#invBackpack [data-key="bag:${i}"]`);
+        if (!cell) continue;
+        const icon = cell.querySelector(".invIcon");
+        const lbl  = cell.querySelector(".invCount");
+        const st   = INV3.backpack.get(i)?.stack;
+        if (!st || !st.id || st.count<=0){
+          icon.style.visibility = "hidden";
+          lbl.textContent = "";
+        } else {
+          icon.style.visibility = "visible";
+          setIconBG(icon, blockNumFromItemId(st.id));
+          lbl.textContent = (st.count>1) ? String(st.count) : "";
+        }
+      }
+    }
+
+    // expose for quick testing
+    window.repaintHotbar   = repaintHotbar;
+    window.repaintBackpack = repaintBackpack;
     window.ArrayContainer   = ArrayContainer;
     window.PlayerInventory  = PlayerInventory;
     window.INV3             = INV3;
