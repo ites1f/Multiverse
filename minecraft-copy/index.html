@@ -21,6 +21,30 @@
       outline: 2px solid yellow;
     }
 
+
+    /* Hotbar bar */
+    #hotbar{
+      position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+      padding: 6px 8px; background: rgba(0,0,0,.35); border-radius: 10px;
+      backdrop-filter: blur(2px);
+    }
+    #hotbarSlots{ display: grid; grid-template-columns: repeat(9, 42px); gap: 6px; }
+    .hotCell{
+      width: 42px; height: 42px; border-radius: 6px; background: rgba(255,255,255,.06);
+      position: relative; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+    }
+    .hotCell.selected{ outline: 2px solid yellow; outline-offset: -2px; }
+    .hotIcon{
+      position:absolute; inset:6px; background-image:url("atlas.png");
+      background-size: 300% 300%; /* 4x4 atlas → we set pos via setIconBG */
+      image-rendering: pixelated;
+    }
+    .hotCount{
+      position:absolute; right:4px; bottom:2px; font: 12px ui-monospace, monospace; color:white;
+      text-shadow: 0 1px 2px rgba(0,0,0,.8);
+    }
+
+
   </style>
 </head>
 <body>
@@ -43,6 +67,14 @@
   </div>
 
   <div id="cross"></div>
+  <!-- Hotbar -->
+  <div id="hotbar">
+    <div id="hotbarSlots"></div>
+  </div>
+
+  <!-- Inventory grid (hidden for now; we’ll use later) -->
+  <div id="invBackpack" style="display:none"></div>
+
 
   <script type="module">
     import * as THREE from "https://esm.sh/three@0.160.0";
@@ -291,12 +323,44 @@
       cycle(dir){ this.select((this.selectedIndex + (dir>0?1:-1) + 9) % 9); }
     }
 
-    /* 3.5) Make a single global-ish instance for now */
+    
+
+
+
     const INV3 = new PlayerInventory();
+    function buildHotbar(){
+      const wrap = document.getElementById("hotbarSlots");
+      wrap.innerHTML = "";
+      for (let i=0;i<9;i++){
+        const cell  = document.createElement("div"); cell.className = "hotCell";
+        const icon  = document.createElement("div"); icon.className = "hotIcon";
+        const count = document.createElement("div"); count.className = "hotCount";
+        cell.appendChild(icon); cell.appendChild(count);
+        wrap.appendChild(cell);
+      }
+    }
+
+    function buildInventory(){ // simple 27-slot grid for later
+      const grid = document.getElementById("invBackpack");
+      grid.innerHTML = "";
+      grid.style.display = "grid";
+      grid.style.gridTemplateColumns = "repeat(9, 42px)";
+      grid.style.gap = "6px";
+      for (let i=0;i<27;i++){
+        const cell = document.createElement("div");
+        cell.className = "hotCell";               // reuse styles
+        cell.dataset.key = `bag:${i}`;
+        const icon  = document.createElement("div"); icon.className = "invIcon hotIcon";
+        const count = document.createElement("div"); count.className = "invCount hotCount";
+        cell.appendChild(icon); cell.appendChild(count);
+        grid.appendChild(cell);
+      }
+      grid.style.display = "none"; // keep hidden for now
+    }
 
 
 
-
+    /* 3.5) Make a single global-ish instance for now */
     /* expose for console poking */
     window.ArrayContainer   = ArrayContainer;
     window.PlayerInventory  = PlayerInventory;
@@ -1309,6 +1373,9 @@
 
     /* ===== Startup & Loop ===== */
     regenAll();
+    buildHotbar();
+    buildInventory();
+
     /* ===== STEP 3 hooks: wire containers -> your existing UI ===== */   
 
     // 3.h1) hotbar: update only changed cells
