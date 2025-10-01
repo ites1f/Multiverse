@@ -1685,44 +1685,47 @@
 
     /* ===== STEP 3 hooks: wire containers -> your existing UI ===== */   
 
-    // 3.h1) hotbar: update only changed cells
+    // HOTBAR
     INV3.hotbar.events.on("slotsChanged", (idxs)=>{
       const icons  = document.querySelectorAll("#hotbarSlots .hotIcon");
       const counts = document.querySelectorAll("#hotbarSlots .hotCount");
       for (const i of idxs){
-        const icon  = icons[i], lbl = counts[i];
         const stack = INV3.hotbar.get(i)?.stack;
+        const icon  = icons[i];
+        const lbl   = counts[i];
         if (!icon || !lbl) continue;
       
-        if (isEmpty(stack)){
-          icon.style.visibility = "hidden";   // <— hide
-          lbl.textContent = "";
+        if (!stack || !stack.id || stack.count <= 0){
+          icon.style.visibility = "hidden";   // <- prevents “stone by default”
+          lbl.textContent = "";               // <- no number
         } else {
           icon.style.visibility = "visible";
           setIconBG(icon, blockNumFromItemId(stack.id));
-          lbl.textContent = (stack.count>1) ? String(stack.count) : "";
+          lbl.textContent = (stack.count > 1) ? String(stack.count) : "";
         }
       }
     });
-
+    
+    // BACKPACK
     INV3.backpack.events.on("slotsChanged", (idxs)=>{
       for (const i of idxs){
-        const cell = document.querySelector(`#invBackpack [data-key="bag:${i}"]`);
+        const cell  = document.querySelector(`#invBackpack [data-key="bag:${i}"]`);
         if (!cell) continue;
-        const icon = cell.querySelector(".invIcon");
-        const lbl  = cell.querySelector(".invCount");
+        const icon  = cell.querySelector(".invIcon");   // NOTE: .invIcon class in backpack
+        const lbl   = cell.querySelector(".invCount");
         const stack = INV3.backpack.get(i)?.stack;
       
-        if (isEmpty(stack)){
+        if (!stack || !stack.id || stack.count <= 0){
           icon.style.visibility = "hidden";
           lbl.textContent = "";
         } else {
           icon.style.visibility = "visible";
           setIconBG(icon, blockNumFromItemId(stack.id));
-          lbl.textContent = (stack.count>1) ? String(stack.count) : "";
+          lbl.textContent = (stack.count > 1) ? String(stack.count) : "";
         }
       }
     });
+
 
 
     // 3.h3) drive selector when selection changes
