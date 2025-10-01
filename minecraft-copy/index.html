@@ -523,6 +523,7 @@
     function openInventory(){
       invOpen = true;
       document.getElementById("invPanel").style.display = "grid";
+      document.getElementById("invBackpack").style.display = "grid"; // <-- add this
       // show cursor: exit pointer lock if active
       if (document.pointerLockElement) document.exitPointerLock();
     }
@@ -530,6 +531,7 @@
     function closeInventory(){
       invOpen = false;
       document.getElementById("invPanel").style.display = "none";
+      document.getElementById("invBackpack").style.display = "none"; // <-- add this
     }
 
     addEventListener("keydown", (e)=>{
