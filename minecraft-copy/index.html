@@ -369,6 +369,29 @@
         }
       }
       cycle(dir){ this.select((this.selectedIndex + (dir>0?1:-1) + 9) % 9); }
+      addDrop(stack){
+        if (!stack || !stack.id) return stack; // ignore bad drops
+        let left = stack.count|0;     
+
+        // 1) try merge into hotbar partials
+        left = mergeIntoPartials(this.hotbar._slots, { id:stack.id, count:left, nbt:stack.nbt });
+        if (left <= 0) return makeStack(null,0);      
+
+        // 2) then backpack partials
+        left = mergeIntoPartials(this.backpack._slots, { id:stack.id, count:left, nbt:stack.nbt });
+        if (left <= 0) return makeStack(null,0);      
+
+        // 3) fill empties in hotbar
+        left = fillEmpties(this.hotbar._slots, { id:stack.id, count:left, nbt:stack.nbt });
+        if (left <= 0) return makeStack(null,0);      
+
+        // 4) fill empties in backpack
+        left = fillEmpties(this.backpack._slots, { id:stack.id, count:left, nbt:stack.nbt });
+        if (left <= 0) return makeStack(null,0);      
+
+        return makeStack(stack.id, left, stack.nbt); // return leftover if inv full     
+      }
+
     }
 
     
@@ -1291,7 +1314,18 @@
       if (bid === BLOCK.AIR || (def && def.break === false)) return;
     
       // Apply drop(s)
-      const drops = typeof getDrops === "function" ? getDrops(bid) : [{ id: bid, count: 1 }];
+      const drops = typeof getDrops === "function"
+        ? getDrops(bid)
+        : [ { id: itemIdFromBlockId(bid), count: 1 } ];
+          
+      for (const d of drops){
+        const leftover = INV3.addDrop(makeStack(d.id, d.count));
+        if (!isEmpty(leftover)){
+          console.log("Inventory full, dropped:", leftover);
+          // TODO: spawn as world item entity instead of logging
+        }
+      }
+
     
       // Remove the block
       setBlock(wx, wy, wz, BLOCK.AIR);
