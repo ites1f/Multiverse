@@ -750,7 +750,9 @@
       // lights: dim to night
       amb.intensity = 0.06 + 0.22 * lightT;   // 0.06..0.28
       dir.intensity = 0.00 + 0.80 * lightT;   // 0..0.8
-    
+      // blue wash at night
+      nightLight.intensity = (1 - lightT) * 0.3; // stronger at night, 0 at noon
+
       // optional: disable shadows at night (perf)
       if (typeof renderer.shadowMap !== "undefined"){
         const wantShadows = lightT > 0.05;
@@ -847,9 +849,11 @@
     skyUniforms.mieDirectionalG.value = 0.8;
 
     // --- Sun (directional light with shadows) ---
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.05);
+    const sunLight = new THREE.DirectionalLight(0xffe9a9, 0.8); // warm pale yellow
     sunLight.castShadow = true;
+    const nightLight = new THREE.AmbientLight(0x223355, 0.0); // start at 0 intensity
     scene.add(sunLight);
+    scene.add(nightLight);
 
     // Shadow quality / coverage
     sunLight.shadow.mapSize.set(512, 512);   // 1024..4096; higher = sharper, slower
