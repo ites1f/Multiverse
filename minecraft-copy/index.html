@@ -1130,7 +1130,7 @@
 
     /* ===== Noise ===== */
     function hash2i(x, y, seed=WORLD_SEED) {
-      let h = x*374761393 + y*668265263;
+      let h = x*374761393 + y*668265263 + seed*1447;
       h = (h ^ (h>>13)) * 1274126177;
       return (h>>>0)/0xffffffff;
     }
