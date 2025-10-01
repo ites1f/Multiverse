@@ -43,6 +43,22 @@
       position:absolute; right:4px; bottom:2px; font: 12px ui-monospace, monospace; color:white;
       text-shadow: 0 1px 2px rgba(0,0,0,.8);
     }
+    #invPanel{
+      position: fixed; inset: 0; display: none; place-items: center;
+      background: rgba(0,0,0,.35); backdrop-filter: blur(2px); z-index: 5000;
+    }
+    #invPanel > div{ /* inner card */
+      background: rgba(20,20,24,.9); border-radius: 12px; padding: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.4);
+    }
+    #invTitle{
+      font: 14px ui-monospace, monospace; color: #e9eefc; margin-bottom: 8px; opacity:.8;
+    }
+    #invBackpack{
+      display: grid; grid-template-columns: repeat(9, 42px); gap: 6px;
+    }
+    #invBackpack .hotCell{ background: rgba(255,255,255,.06); }
+
     /* 
     #invCursor{
       width: 32px; height: 32px; 
@@ -97,11 +113,11 @@
     <div class="hotIcon" style="width:34px; height:34px;"></div>
     <div class="hotCount" style="right:0; bottom:-2px; position:absolute;"></div>
   </div>
-
-
-  <!-- Inventory grid (hidden for now; we’ll use later) -->
-  <div id="invBackpack" style="display:none"></div>
-
+  <!-- Inventory panel -->
+  <div id="invPanel" style="display:none">
+    <div id="invTitle">Inventory</div>
+    <div id="invBackpack"></div>
+  </div>
 
   <script type="module">
     import * as THREE from "https://esm.sh/three@0.160.0";
@@ -496,7 +512,34 @@
       if (!cell) return;
       handleLeftClickSlot(cell);
     });
+//STEP FIVE//
+    let invOpen = false;
 
+    function openInventory(){
+      invOpen = true;
+      document.getElementById("invPanel").style.display = "grid";
+      // show cursor: exit pointer lock if active
+      if (document.pointerLockElement) document.exitPointerLock();
+    }
+
+    function closeInventory(){
+      invOpen = false;
+      document.getElementById("invPanel").style.display = "none";
+    }
+
+    addEventListener("keydown", (e)=>{
+      if (e.key.toLowerCase() === "e"){
+        e.preventDefault();
+        invOpen ? closeInventory() : openInventory();
+      }
+      if (e.key === "Escape" && invOpen){
+        e.preventDefault();
+        closeInventory();
+      }
+    });
+
+    // while inventory is open, ignore movement input
+    function movementEnabled(){ return !invOpen && pointerLocked; }
 
     /* expose for console poking */
     window.ArrayContainer   = ArrayContainer;
@@ -832,10 +875,14 @@
       renderer.setSize(innerWidth, innerHeight);
     });
     addEventListener("keydown", (e)=>{
-      if (e.key.toLowerCase() === "f" && !pointerLocked){
+      if (e.key.toLowerCase() === "f" && !pointerLocked && !invOpen){
         renderer.domElement.requestPointerLock();
       }
     });
+    // stop clicks inside inventory from bubbling
+    document.getElementById("invPanel").addEventListener("mousedown", e=> e.stopPropagation());
+    document.getElementById("hotbarSlots").addEventListener("mousedown", e=> e.stopPropagation());
+    
     document.addEventListener("pointerlockchange", () => {
       pointerLocked = (document.pointerLockElement === renderer.domElement);
     });
@@ -1615,16 +1662,18 @@
       const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(-1).normalize();
       const right   = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
     
-      // --- speed: Shift=crouch, Z=run (crouch overrides run) ---
-      let speed = WALK;
-      if (keys.has("z"))     speed = WALK * RUN_MULT;
-      if (keys.has("shift")) speed = WALK * CROUCH_MULT;
-    
-      if (keys.has("w")) player.vel.addScaledVector(forward,  speed*dt);
-      if (keys.has("s")) player.vel.addScaledVector(forward, -speed*dt);
-      if (keys.has("a")) player.vel.addScaledVector(right,   -speed*dt);
-      if (keys.has("d")) player.vel.addScaledVector(right,    speed*dt);
-      if (keys.has(" ") && player.grounded) player.vel.y = JUMP_VEL;
+      if (movementEnabled()){
+        let speed = WALK;
+        if (keys.has("z"))     speed = WALK * RUN_MULT;
+        if (keys.has("shift")) speed = WALK * CROUCH_MULT;
+      
+        if (keys.has("w")) player.vel.addScaledVector(forward,  speed*dt);
+        if (keys.has("s")) player.vel.addScaledVector(forward, -speed*dt);
+        if (keys.has("a")) player.vel.addScaledVector(right,   -speed*dt);
+        if (keys.has("d")) player.vel.addScaledVector(right,    speed*dt);
+        if (keys.has(" ") && player.grounded) player.vel.y = JUMP_VEL;
+      }
+
     
       // --- gravity & sun ---
       player.vel.y += GRAVITY * dt;
