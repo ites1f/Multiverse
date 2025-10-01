@@ -36,7 +36,7 @@
     .hotCell.selected{ outline: 2px solid yellow; outline-offset: -2px; }
     .hotIcon{
       position:absolute; inset:6px; background-image:url("atlas.png");
-      background-size: 300% 300%; /* 4x4 atlas → we set pos via setIconBG */
+      background-size: 400% 400%; /* 4x4 atlas → we set pos via setIconBG */
       image-rendering: pixelated;
     }
     .hotCount{
@@ -427,11 +427,11 @@
       if (blockId === BLOCK.LEAVES) return { tx:2, ty:1 };
       return { tx:0, ty:0 };
     }
-    
+
     /* Icon % mapping reused */
     function setIconBG(div, blockId){
       const {tx,ty} = iconTileFor(blockId ?? BLOCK.STONE);
-      const uStep = 100 / (4-1), vStep = 100 / (4-1);
+      const uStep = 100 / (4), vStep = 100 / (4);
       div.style.backgroundPosition = `${tx*uStep}% ${ty*vStep}%`;
     }
 
