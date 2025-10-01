@@ -810,8 +810,10 @@
       camera.updateProjectionMatrix();
       renderer.setSize(innerWidth, innerHeight);
     });
-    document.body.addEventListener("click", () => {
-      if (!pointerLocked) renderer.domElement.requestPointerLock();
+    addEventListener("keydown", (e)=>{
+      if (e.key.toLowerCase() === "l" && !pointerLocked){
+        renderer.domElement.requestPointerLock();
+      }
     });
     document.addEventListener("pointerlockchange", () => {
       pointerLocked = (document.pointerLockElement === renderer.domElement);
