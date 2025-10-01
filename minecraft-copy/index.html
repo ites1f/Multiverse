@@ -167,7 +167,7 @@
     let isRun = false, isCrouch = false;
     let eyeY = 1.62; // smoothed eye height
     let REACH_DISTANCE = 6;
-    let WORLD_SEED = 10116; // change this number to get a different world
+    let WORLD_SEED = 16 + Math.floor(Math.random() * 2**31); 
 
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:256, Z:16 };
