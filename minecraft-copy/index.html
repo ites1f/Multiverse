@@ -353,20 +353,13 @@
 
     /* 3.2) Tiny event emitter (no deps) */
     function makeEmitter(){
-      const map = Object.create(null);
+      const m = new Map();
       return {
-        on(ev, fn){
-          (map[ev] || (map[ev]=[])).push(fn);
-          return () => { const a = map[ev]; if (!a) return; const i=a.indexOf(fn); if (i>=0) a.splice(i,1); };
-        },
-        emit(ev, payload){
-          const a = map[ev]; if (!a) return;
-          // copy so listeners can add/remove safely during emit
-          [...a].forEach(fn => { try{ fn(payload); }catch(e){ console.error("[emit err]", e); } });
-        }
+        on(ev, fn){ (m.get(ev) || m.set(ev, new Set()).get(ev)).add(fn); return () => this.off(ev, fn); },
+        off(ev, fn){ m.get(ev)?.delete(fn); },
+        emit(ev, payload){ m.get(ev)?.forEach(fn=>fn(payload)); }
       };
     }
-
 
     /* 3.3) Array-backed Container */
     class ArrayContainer {
@@ -440,8 +433,6 @@
 
 
     const INV3 = new PlayerInventory();
-    window.INV3 = INV3; // <— make sure the same instance is used everywhere
-
     function buildHotbar(){
       const wrap = document.getElementById("hotbarSlots");
       wrap.innerHTML = "";
@@ -453,7 +444,6 @@
         wrap.appendChild(cell);
       }
     }
-
 
     function buildInventory(){ // simple 27-slot grid for later
       const grid = document.getElementById("invBackpack");
