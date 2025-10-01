@@ -723,9 +723,11 @@
     window.BLOCK             = BLOCK;
     /* ===== Day–Night ===== */
     let dayTime = 0;                 // 0..1 (fraction of day)
-    const DAY_SECONDS   = 90;        // full day length (tweak)
-    const SUN_MIN_ELEV  = -8;        // degrees (sun below horizon at night)
+    const DAY_SECONDS   = 9;        // full day length (tweak)
+    const SUN_MIN_ELEV  = -75;        // degrees (sun below horizon at night)
     const SUN_MAX_ELEV  = 75;        // degrees (noon height)
+    sunLight.color.set(0xffe9a9);  // warm pale yellow
+    sunLight.intensity = 0.8;      // tone down brightness
     function updateSun(dt){
       // progress the day
       dayTime = (dayTime + dt / DAY_SECONDS) % 1;
