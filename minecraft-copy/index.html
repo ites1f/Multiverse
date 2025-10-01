@@ -312,6 +312,40 @@
       }
       return left;
     }
+    // container-aware merge/fill that also notifies UI
+    function mergeIntoPartialsIn(container, incoming){
+      if (isEmpty(incoming)) return 0;
+      let left = incoming.count|0;
+      const changed = [];
+      container._slots.forEach((s, i)=>{
+        if (left<=0) return;
+        if (isEmpty(s.stack)) return;
+        if (!canStack(s.stack, incoming)) return;
+        const before = s.stack.count|0;
+        left = mergeInto(s.stack, left);     // mutates s.stack.count
+        if ((s.stack.count|0) !== before) changed.push(i);
+      });
+      if (changed.length) container.notify(changed);
+      return left;
+    }
+
+    function fillEmptiesIn(container, incoming){
+      if (isEmpty(incoming)) return 0;
+      let left = incoming.count|0;
+      const changed = [];
+      container._slots.forEach((s, i)=>{
+        if (left<=0) return;
+        if (!isEmpty(s.stack)) return;
+        const max = maxStackOf(incoming.id) ?? 64;
+        const put = Math.min(max, left);
+        s.stack = makeStack(incoming.id, put, incoming.nbt);
+        changed.push(i);
+        left -= put;
+      });
+      if (changed.length) container.notify(changed);
+      return left;
+    }
+
     /* ===== STEP 3: Containers + Events (barebones) ===== */
 
     /* 3.1) Slot helper (uniform shape) */
@@ -1313,18 +1347,19 @@
       const def = (typeof BLOCK_BY_ID !== "undefined") ? BLOCK_BY_ID[bid] : null;
       if (bid === BLOCK.AIR || (def && def.break === false)) return;
     
-      // Apply drop(s)
-      const drops = typeof getDrops === "function"
-        ? getDrops(bid)
-        : [ { id: itemIdFromBlockId(bid), count: 1 } ];
+      // compute drops (block → item id string)
+      const drops = (typeof getDrops === "function")
+        ? getDrops(bid)                         // if you have a custom table
+        : [ { id: itemIdFromBlockId(bid), count: 1 } ]; // default: block → same item
           
       for (const d of drops){
         const leftover = INV3.addDrop(makeStack(d.id, d.count));
         if (!isEmpty(leftover)){
-          console.log("Inventory full, dropped:", leftover);
-          // TODO: spawn as world item entity instead of logging
+          // TODO: spawn world item entity; for now just log
+          console.log("Inventory full, leftover:", leftover.id, leftover.count);
         }
       }
+
 
     
       // Remove the block
@@ -1616,41 +1651,40 @@
       const icons  = document.querySelectorAll("#hotbarSlots .hotIcon");
       const counts = document.querySelectorAll("#hotbarSlots .hotCount");
       for (const i of idxs){
-        const slot  = INV3.hotbar.get(i);
-        const stack = slot?.stack;
-        const icon  = icons[i];
-        const lbl   = counts[i];
-        if (!icon || !lbl) continue;    
-
-        if (!stack || !stack.id || stack.count <= 0){
-          icon.style.backgroundPosition = "";
+        const icon  = icons[i], lbl = counts[i];
+        const stack = INV3.hotbar.get(i)?.stack;
+        if (!icon || !lbl) continue;
+      
+        if (isEmpty(stack)){
+          icon.style.visibility = "hidden";   // <— hide
           lbl.textContent = "";
         } else {
-          // reuse your atlas helper
+          icon.style.visibility = "visible";
           setIconBG(icon, blockNumFromItemId(stack.id));
-          lbl.textContent = (stack.count > 1) ? String(stack.count) : "";
+          lbl.textContent = (stack.count>1) ? String(stack.count) : "";
         }
       }
-    });   
+    });
 
-    // 3.h2) backpack grid: update only changed cells
     INV3.backpack.events.on("slotsChanged", (idxs)=>{
       for (const i of idxs){
         const cell = document.querySelector(`#invBackpack [data-key="bag:${i}"]`);
         if (!cell) continue;
         const icon = cell.querySelector(".invIcon");
         const lbl  = cell.querySelector(".invCount");
-        const stack = INV3.backpack.get(i)?.stack;    
-
-        if (!stack || !stack.id || stack.count <= 0){
-          icon.style.backgroundPosition = "";
+        const stack = INV3.backpack.get(i)?.stack;
+      
+        if (isEmpty(stack)){
+          icon.style.visibility = "hidden";
           lbl.textContent = "";
         } else {
+          icon.style.visibility = "visible";
           setIconBG(icon, blockNumFromItemId(stack.id));
-          lbl.textContent = (stack.count > 1) ? String(stack.count) : "";
+          lbl.textContent = (stack.count>1) ? String(stack.count) : "";
         }
       }
-    });   
+    });
+
 
     // 3.h3) drive selector when selection changes
     INV3.onSelectChanged = (i)=>{
