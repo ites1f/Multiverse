@@ -38,6 +38,7 @@
       position:absolute; inset:6px; background-image:url("atlas.png");
       background-size: 400% 400%; /* 4x4 atlas → we set pos via setIconBG */
       image-rendering: pixelated;
+      visibility: hidden; 
     }
     .hotCount{
       position:absolute; right:4px; bottom:2px; font: 12px ui-monospace, monospace; color:white;
@@ -1682,6 +1683,8 @@
     regenAll();
     buildHotbar();
     buildInventory();
+    INV3.hotbar.notify([...Array(9).keys()]);
+    INV3.backpack.notify([...Array(27).keys()]);
 
     /* ===== STEP 3 hooks: wire containers -> your existing UI ===== */   
 
