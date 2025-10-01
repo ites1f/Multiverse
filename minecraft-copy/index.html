@@ -581,7 +581,7 @@
       // normal L-click pick/merge/swap
       handleLeftClickSlot(cell);
     });
-    
+
     // backpack
     document.getElementById("invBackpack").addEventListener("click", (e)=>{
       const cell = e.target.closest("[data-key]");
@@ -1457,9 +1457,6 @@
           console.log("Inventory full, leftover:", leftover.id, leftover.count);
         }
       }
-
-
-    
       // Remove the block
       setBlock(wx, wy, wz, BLOCK.AIR);
     
@@ -1473,6 +1470,8 @@
           if (typeof markNeighborsDirty === "function") markNeighborsDirty(cx, cz);
         }
       } catch (e){ /* noop */ }
+      repaintHotbar();
+      repaintBackpack();
     
     }
     function tryConsumeSelected(){
