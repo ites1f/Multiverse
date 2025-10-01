@@ -71,6 +71,12 @@
   <div id="hotbar">
     <div id="hotbarSlots"></div>
   </div>
+  <!-- STEP 4: cursor ghost -->
+  <div id="invCursor" style="display:none; pointer-events:none; position:fixed; translate:-50% -50%; z-index:9999;">
+    <div class="hotIcon" style="width:34px; height:34px;"></div>
+    <div class="hotCount" style="right:0; bottom:-2px; position:absolute;"></div>
+  </div>
+
 
   <!-- Inventory grid (hidden for now; we’ll use later) -->
   <div id="invBackpack" style="display:none"></div>
@@ -358,9 +364,119 @@
       grid.style.display = "none"; // keep hidden for now
     }
 
+    /* ===== STEP 4: Cursor + L-click (pick/merge/swap) ===== */
+
+    // 4.1) Cursor state
+    const Cursor = { stack: makeStack(null,0) };
+    const CursorEl = document.getElementById("invCursor");
+    function cursorIsEmpty(){ return isEmpty(Cursor.stack); }
+
+    // 4.2) Paint cursor ghost
+    function paintCursor(){
+      if (cursorIsEmpty()){ CursorEl.style.display = "none"; return; }
+      const icon = CursorEl.querySelector(".hotIcon");
+      const cnt  = CursorEl.querySelector(".hotCount");
+      setIconBG(icon, blockNumFromItemId(Cursor.stack.id));
+      cnt.textContent = (Cursor.stack.count > 1) ? String(Cursor.stack.count) : "";
+      CursorEl.style.display = "block";
+    }
+
+    // follow mouse
+    addEventListener("mousemove", (e)=>{
+      if (CursorEl.style.display !== "none"){
+        CursorEl.style.left = e.clientX + "px";
+        CursorEl.style.top  = e.clientY + "px";
+      }
+    });
+
+    // 4.3) Slot resolver: which container/index did we click?
+    function resolveSlotFromCell(cell){
+      if (!cell) return null;
+    
+      // hotbar
+      const hotWrap = document.getElementById("hotbarSlots");
+      if (hotWrap && hotWrap.contains(cell)){
+        // index by DOM order
+        const kids = [...hotWrap.children];
+        const idx = kids.indexOf(cell);
+        if (idx >= 0) return { container: INV3.hotbar, index: idx };
+      }
+    
+      // backpack (expects data-key="bag:i")
+      if (cell.dataset && cell.dataset.key && cell.dataset.key.startsWith("bag:")){
+        const i = parseInt(cell.dataset.key.slice(4), 10);
+        return { container: INV3.backpack, index: i };
+      }
+    
+      return null;
+    }
+
+    // 4.4) Core L-click behavior (Minecraft-style)
+    function handleLeftClickSlot(cell){
+      const res = resolveSlotFromCell(cell);
+      if (!res) return;
+      const cont = res.container;
+      const i    = res.index;
+      const slot = cont.get(i); if (!slot) return;
+    
+      // both stacks we'll work with
+      const S = slot.stack;
+      const C = Cursor.stack;
+    
+      if (cursorIsEmpty()){
+        // pick up entire slot
+        if (isEmpty(S)) return; // nothing to pick
+        Cursor.stack = makeStack(S.id, S.count, S.nbt);
+        // clear slot
+        cont.set(i, makeStack(null,0));
+        paintCursor();
+        return;
+      }
+    
+      // cursor has something
+      if (isEmpty(S)){
+        // place as much as possible into empty slot
+        const max = maxStackOf(C.id) ?? 64;
+        const put = Math.min(max, C.count|0);
+        cont.set(i, makeStack(C.id, put, C.nbt));
+        Cursor.stack.count -= put;
+        if (Cursor.stack.count <= 0) Cursor.stack = makeStack(null,0);
+        paintCursor();
+        return;
+      }
+    
+      // both have items
+      if (canStack(S, C)){
+        // merge cursor into slot (respect max stack)
+        const left = mergeInto(S, C.count|0);
+        // we mutated slot.count directly; notify UI
+        cont.touch(i);
+        Cursor.stack.count = left;
+        if (Cursor.stack.count <= 0) Cursor.stack = makeStack(null,0);
+        paintCursor();
+        return;
+      }
+    
+      // different items → swap
+      const tmp = makeStack(S.id, S.count, S.nbt);
+      cont.set(i, makeStack(C.id, C.count, C.nbt));
+      Cursor.stack = tmp;
+      paintCursor();
+    }
+
+    // 4.5) Attach listeners (L-click only for now)
+    document.getElementById("hotbarSlots").addEventListener("click", (e)=>{
+      const cell = e.target.closest(".hotCell");
+      if (!cell) return;
+      handleLeftClickSlot(cell);
+    });
+    document.getElementById("invBackpack").addEventListener("click", (e)=>{
+      const cell = e.target.closest("[data-key]");
+      if (!cell) return;
+      handleLeftClickSlot(cell);
+    });
 
 
-    /* 3.5) Make a single global-ish instance for now */
     /* expose for console poking */
     window.ArrayContainer   = ArrayContainer;
     window.PlayerInventory  = PlayerInventory;
@@ -379,11 +495,6 @@
     window.maxStackOf        = maxStackOf;
     window.canStackTogether  = canStackTogether;
     window.BLOCK             = BLOCK;
-
-
-
-
-
     /* ===== Day–Night ===== */
     let dayTime = 0; // 0..1
     function updateSun(dt){
