@@ -709,7 +709,7 @@
     /* Icon % mapping reused */
     function setIconBG(div, blockId){
       const {tx,ty} = iconTileFor(blockId ?? BLOCK.STONE);
-      const uStep = 100 / (4), vStep = 100 / (4);
+      const uStep = 100 / (4-1), vStep = 100 / (4-1);
       div.style.backgroundPosition = `${tx*uStep}% ${ty*vStep}%`;
     }
 
@@ -1705,7 +1705,7 @@
         }
       }
     });
-    
+
     // BACKPACK
     INV3.backpack.events.on("slotsChanged", (idxs)=>{
       for (const i of idxs){
