@@ -1475,9 +1475,27 @@
     
     }
     function tryConsumeSelected(){
-      // skip
+      // selected hotbar slot
+      const slot = INV3.getSelectedSlot();
+      if (!slot) return false;
+    
+      const st = slot.stack;
+      if (isEmpty(st)) return false;        // nothing to place
+    
+      // must match the block you’re placing
+      const needItemId = itemIdFromBlockId(CURRENT_BLOCK);
+      if (st.id !== needItemId) return false;
+    
+      // consume exactly 1
+      takeFrom(st, 1);
+    
+      // notify UI for that slot
+      INV3.hotbar.touch(INV3.selectedIndex);
+    
+      // (optional) if stack emptied, you can also clear CURRENT_BLOCK or leave as is
       return true;
     }
+
     let lastChunkX = Infinity, lastChunkZ = Infinity;
     function ensureChunk(cx,cz){
       const k = key(cx,cz);
