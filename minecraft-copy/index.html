@@ -160,6 +160,7 @@
     let GRID_RADIUS = 4;
     let BUILDS_PER_FRAME = 12;
 
+
     /* ===== Movement tuning ===== */
     let RUN_MULT      = 1.5;  // sprint factor (Z)
     let CROUCH_MULT   = 0.5;  // crouch factor (Shift)
@@ -1188,6 +1189,12 @@
       }
       return Math.floor(h);
     }
+    function surfaceYAt(wx, wz){
+      // ground height from your terrain sampler (clamped to world)
+      const hRaw = FLAT_WORLD_Y ?? sampleTerrain(wx, wz);
+      return Math.max(1, Math.min(CHUNK.Y - 2, hRaw));
+    }
+
     const FLAT_WORLD_Y = null;
 
     /* ===== World ===== */
@@ -1602,12 +1609,16 @@
     }
 
     /* ===== Player & Picking & Physics ===== */
+    // find surface height at (0,0)
+    const groundY = surfaceYAt(0, 0);  // helper from step 1
+    // start one block above it
     const player = {
-      pos: new THREE.Vector3(0, 30, 0),
+      pos: new THREE.Vector3(0.5, groundY + 1.01, 0.5), // 0.5 = center of block
       vel: new THREE.Vector3(),
       size: new THREE.Vector3(0.6, 1.2, 0.6),
       grounded: false
     };
+
     function eyePos(){ return player.pos.clone().add(new THREE.Vector3(0, player.size.y*0.75, 0)); }
     // Precise voxel raycast (Amanatides & Woo)
     function pick(maxDist = 8) {
