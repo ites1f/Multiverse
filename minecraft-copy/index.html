@@ -722,23 +722,55 @@
     window.canStackTogether  = canStackTogether;
     window.BLOCK             = BLOCK;
     /* ===== Day–Night ===== */
-    let dayTime = 0; // 0..1
+    let dayTime = 0;                 // 0..1 (fraction of day)
+    const DAY_SECONDS   = 90;        // full day length (tweak)
+    const SUN_MIN_ELEV  = -8;        // degrees (sun below horizon at night)
+    const SUN_MAX_ELEV  = 75;        // degrees (noon height)
     function updateSun(dt){
-      // ~60 seconds per day. Change 0.016 → slower, 0.04 → faster
-      dayTime = (dayTime + dt*0.016) % 1;
-      const elev = Math.max(5, Math.sin(dayTime*2*Math.PI)*50 + 50); // clamp above horizon a bit
-      const az   = dayTime*360;
+      // progress the day
+      dayTime = (dayTime + dt / DAY_SECONDS) % 1;
+    
+      // phase 0..2π
+      const phase = dayTime * Math.PI * 2;
+    
+      // elevation swings smoothly from MIN..MAX (sin curve mapped to range)
+      const mid   = (SUN_MAX_ELEV + SUN_MIN_ELEV) * 0.5;
+      const amp   = (SUN_MAX_ELEV - SUN_MIN_ELEV) * 0.5;
+      const elev  = mid + Math.sin(phase) * amp;
+    
+      // azimuth spins all day (0..360). Shift if you want sunrise from east.
+      const az    = (dayTime * 360); // add +180 if you want opposite
+    
       setSun(elev, az);
-      // light intensities from day curve
-      const k = Math.max(0, Math.sin(dayTime*2*Math.PI));
-      amb.intensity = 0.10 + 0.20*k;
-      dir.intensity = 0.35 + 0.35*k;
-      // sky fog color (optional mild shift)
-      const dayCol = new THREE.Color(0xcfe8ff);
-      const nightCol = new THREE.Color(0x0b1220);
-      const mix = (a,b,t)=>a.clone().lerp(b, t);
-      const fogCol = mix(nightCol, dayCol, k*0.9+0.1);
-      scene.fog.color.copy(fogCol);
+    
+      // daylight factor 0..1 based on elevation above horizon
+      const lightT = Math.max(0, Math.min(1, (elev - 0) / (SUN_MAX_ELEV - 0)));
+    
+      // lights: dim to night
+      amb.intensity = 0.06 + 0.22 * lightT;   // 0.06..0.28
+      dir.intensity = 0.00 + 0.80 * lightT;   // 0..0.8
+    
+      // optional: disable shadows at night (perf)
+      if (typeof renderer.shadowMap !== "undefined"){
+        const wantShadows = lightT > 0.05;
+        if (renderer.shadowMap.enabled !== wantShadows){
+          renderer.shadowMap.enabled = wantShadows;
+          if (typeof sunLight !== "undefined") sunLight.castShadow = wantShadows;
+        }
+      }
+    
+      // sky/fog palette
+      const dayCol   = new THREE.Color(0xcfe8ff); // day blue
+      const duskCol  = new THREE.Color(0x8b5ea7); // purple dusk
+      const nightCol = new THREE.Color(0x0b1220); // deep night
+    
+      // blend: night→dusk→day using lightT (with a soft knee)
+      const duskT = Math.min(1, Math.max(0, (elev + 6) / 16)); // around -6°..10°
+      const skyT  = lightT*lightT; // softer rise
+    
+      const fogMix1 = nightCol.clone().lerp(duskCol, duskT);
+      const fogMix2 = fogMix1.clone().lerp(dayCol,  skyT);
+      scene.fog.color.copy(fogMix2);
     }
     // Hide F3 HUD on boot
     addEventListener("DOMContentLoaded", ()=>{
