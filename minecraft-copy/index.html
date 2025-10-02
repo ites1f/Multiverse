@@ -1912,7 +1912,7 @@
       grounded: false
     };
 
-    function eyePos(){ return player.pos.clone().add(new THREE.Vector3(0, player.size.y*0.75, 0)); }
+    function eyePos(){ return player.pos.clone().add(new THREE.Vector3(0, player.size.y*0.5, 0)); }
     // Precise voxel raycast (Amanatides & Woo)
     function pick(maxDist = 8) {
       const origin = eyePos();
