@@ -1500,12 +1500,12 @@
         
           for (let y = 0; y < CHUNK.Y; y++){
             let id = BLOCK.AIR;
-          /*
+        
             if (y <= h){
               // don’t let caves break the top block or the 1st dirt layer
               const allowCave = (y <= h - 2) && sampleCave(wx, y, wz);
             
-              if (allowCave){
+              if (allowCave * 0 === 1){
                 id = BLOCK.AIR;                               // carve cave
               } else if (y === h){
                 id = BLOCK.GRASS;                             // surface
@@ -1515,14 +1515,14 @@
                 id = BLOCK.DIRT;                              // just under grass
               }
             }
-          */
+    
             c.blocks[idx(x, y, z)] = id;
           }
         }
       }
       //carveWormsInChunk(c, 3);  // 0–5 works; higher = more tunnels
       // decorate this chunk with trees (unchanged)
-      //carveOldCavesInChunk(c, WORLD_SEED, 2); // 2 worms per chunk (tweak for density)
+      carveOldCavesInChunk(c, WORLD_SEED, 2); // 2 worms per chunk (tweak for density)
       decorateChunkTrees(c, WORLD_SEED, fbm2);
       c.generated = true;
       c.dirty = true;
