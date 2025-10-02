@@ -1106,6 +1106,41 @@
     dir.position.set(0.7,1,0.4); scene.add(dir);
 
     const info = document.getElementById("info");
+    // === Hearts HUD (MC-style, above hotbar) ===
+    const heartsHUD = document.createElement("div");
+    heartsHUD.id = "heartsHUD";
+    Object.assign(heartsHUD.style, {
+      position: "fixed",
+      left: "50%",
+      transform: "translateX(-50%)",
+      bottom: "96px",                 // temp; we’ll auto-calc below
+      fontSize: "22px",
+      letterSpacing: "2px",
+      lineHeight: "1",
+      color: "#ff4d4d",
+      textShadow: "0 2px 0 #000, 0 0 6px rgba(0,0,0,.4)",
+      pointerEvents: "none",
+      userSelect: "none",
+      zIndex: "9999"
+    });
+    document.body.appendChild(heartsHUD);
+
+    // auto-position just above the hotbar, if #hotbar exists
+    function positionHearts(){
+      const hb = document.getElementById("hotbar");
+      if (hb){
+        const r = hb.getBoundingClientRect();
+        const pxFromBottom = window.innerHeight - r.top;
+        heartsHUD.style.bottom = (pxFromBottom + 6) + "px"; // 6px gap above bar
+      } else {
+        heartsHUD.style.bottom = "96px"; // fallback
+      }
+    }
+    addEventListener("resize", positionHearts);
+    setTimeout(positionHearts, 0);
+    const foodEl = document.getElementById("food") || document.getElementById("stats"); // whichever you used
+    if (foodEl) foodEl.style.display = "none";
+
     // === Survival v0.1 ===
     const STATS = {
       hpMax: 20, hp: 20,          // 10 hearts = 20 hp
@@ -1120,21 +1155,15 @@
     document.getElementById("hud").appendChild(statsLine);
 
     function paintStats(){
-      const heartFull = "❤", heartEmpty = "♡";
-      const foodFull = "🍗", foodEmpty = "·";
-    
+      // draw hearts only (every 2 hp = 1 heart)
       let hearts = "";
-      for (let i=0;i<STATS.hpMax;i+=2){
-        hearts += (STATS.hp >= i+2) ? heartFull : heartEmpty;
+      for (let i = 0; i < STATS.hpMax; i += 2){
+        hearts += (STATS.hp >= i + 2) ? "❤" : "♡";
       }
-      let food = "";
-      for (let i=0;i<STATS.foodMax;i+=2){
-        food += (STATS.food >= i+2) ? foodFull : foodEmpty;
-      }
-    
-      document.getElementById("hearts").textContent = hearts;
-      document.getElementById("food").textContent = food;
+      heartsHUD.textContent = hearts;
+      // keep hunger logic running silently (no UI)
     }
+
 
 
 
