@@ -1982,7 +1982,7 @@
           const impact = Math.max(0, -prevVy); // downward speed when we hit
           const SAFE = 7.0;                    // tweak: no damage below this
           if (impact > SAFE){
-            const dmg = (impact - SAFE) * 2.2; // scale to feel like hearts
+            const dmg = (impact - SAFE) * 0.4; // scale to feel like hearts
             takeDamage(dmg);
           }
         }
