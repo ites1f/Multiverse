@@ -184,6 +184,19 @@
       [BLOCK.LEAVES]: true,
       [BLOCK.GLASS]: true,
     };
+    function sampleCave(wx, wy, wz){
+      // world coords → scale down for caves
+      const nx = wx * 0.08;
+      const ny = wy * 0.08;
+      const nz = wz * 0.08;
+
+      // use fbm3 or simplex3 if you have it, else fake with hash3
+      const n = Math.sin(nx*2.1) + Math.sin(ny*2.3) + Math.sin(nz*2.7);
+
+      // threshold carves empty space
+      return (n > 1.8); // tweak threshold for more/less caves
+    }
+
     /* ===== STEP 1: Item Registry (barebones, MC-style) ===== */
     // numeric id ↔ string id (optional sugar)
     const BLOCK_NAME = {
@@ -1291,29 +1304,46 @@
     const idx = (x,y,z)=> x + CHUNK.X*(z + CHUNK.Z*y);
 
     function generateChunk(c){
-      if(c.generated) return;
-      const baseX=c.cx*CHUNK.X, baseZ=c.cz*CHUNK.Z;
-      for(let z=0;z<CHUNK.Z;z++){
-        for(let x=0;x<CHUNK.X;x++){
-          const wx=baseX+x, wz=baseZ+z;
-          const hRaw = FLAT_WORLD_Y ?? sampleTerrain(wx,wz);
+      if (c.generated) return;
+      const baseX = c.cx * CHUNK.X, baseZ = c.cz * CHUNK.Z;
+    
+      for (let z = 0; z < CHUNK.Z; z++){
+        for (let x = 0; x < CHUNK.X; x++){
+          const wx = baseX + x, wz = baseZ + z;
+          const hRaw = (typeof FLAT_WORLD_Y !== "undefined" && FLAT_WORLD_Y !== null) ? FLAT_WORLD_Y : sampleTerrain(wx, wz);
           const h = Math.max(1, Math.min(CHUNK.Y - 2, hRaw));
-          for(let y=0;y<CHUNK.Y;y++){
-            let id=BLOCK.AIR;
-            if(y===h) id=BLOCK.GRASS;
-            else if(y<h-3) id=BLOCK.STONE;
-            else if(y<h) id=BLOCK.DIRT;
-            c.blocks[idx(x,y,z)]=id;
+        
+          for (let y = 0; y < CHUNK.Y; y++){
+            let id = BLOCK.AIR;
+          
+            if (y <= h){
+              // don’t let caves break the top block or the 1st dirt layer
+              const allowCave = (y <= h - 2) && sampleCave(wx, y, wz);
+            
+              if (allowCave){
+                id = BLOCK.AIR;                               // carve cave
+              } else if (y === h){
+                id = BLOCK.GRASS;                             // surface
+              } else if (y < h - 3){
+                id = BLOCK.STONE;                             // deep
+              } else {
+                id = BLOCK.DIRT;                              // just under grass
+              }
+            }
+          
+            c.blocks[idx(x, y, z)] = id;
           }
         }
       }
-      // decorate this chunk with trees
+    
+      // decorate this chunk with trees (unchanged)
       decorateChunkTrees(c, WORLD_SEED, fbm2);
-      c.generated=true;
-      c.dirty=true;
+      c.generated = true;
+      c.dirty = true;
       enqueueBuild(c);
-      markNeighborsDirty(c.cx, c.cz); // keep borders fresh
+      markNeighborsDirty(c.cx, c.cz);
     }
+
 
     function shouldDrawFace(cur, neighbor){
       if (neighbor === BLOCK.AIR) return true;
@@ -1830,7 +1860,7 @@
         // landed this frame?
         if (!wasGrounded && player.grounded){
           const impact = Math.max(0, -prevVy); // downward speed when we hit
-          const SAFE = 7.0;                    // tweak: no damage below this
+          const SAFE = 70.0;                    // tweak: no damage below this
           if (impact > SAFE){
             const dmg = (impact - SAFE) * 2.2; // scale to feel like hearts
             takeDamage(dmg);
