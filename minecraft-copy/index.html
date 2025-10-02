@@ -236,6 +236,71 @@
     
       return f > thresh; // true → carve air
     }
+    function carveOldCavesInChunk(c, seed=WORLD_SEED, tunnelCount=2){
+      const baseX = c.cx*CHUNK.X, baseZ = c.cz*CHUNK.Z;
+      const rand = mulberry32(seed ^ (c.cx*73856093) ^ (c.cz*19349663)); // per-chunk RNG
+
+      for (let i=0;i<tunnelCount;i++){
+        // start deep underground
+        let x = baseX + rand()*CHUNK.X;
+        let y = 20 + rand()*30; // y=20–50 range
+        let z = baseZ + rand()*CHUNK.Z;
+      
+        let yaw = rand()*Math.PI*2;
+        let pitch = (rand()-0.5)*0.4; // shallow angle
+        const len = 40 + rand()*40;
+      
+        for (let t=0;t<len;t++){
+          const radius = 1.5 + rand()*0.8;
+        
+          // carve sphere at this step
+          const cx=Math.floor(x), cy=Math.floor(y), cz=Math.floor(z);
+          for (let yy=-2;yy<=2;yy++){
+            for (let xx=-2;xx<=2;xx++){
+              for (let zz=-2;zz<=2;zz++){
+                if (xx*xx+yy*yy+zz*zz <= radius*radius){
+                  const lx=cx+xx-baseX, ly=cy+yy, lz=cz+zz-baseZ;
+                  if (ly>=1 && ly<CHUNK.Y-1 &&
+                      lx>=0 && lx<CHUNK.X && lz>=0 && lz<CHUNK.Z){
+                    c.blocks[idx(lx,ly,lz)] = BLOCK.AIR;
+                  }
+                }
+              }
+            }
+          }
+        
+          // wander heading
+          yaw   += (rand()-0.5)*0.3;
+          pitch += (rand()-0.5)*0.1;
+          pitch = Math.max(-0.4, Math.min(0.4, pitch));
+        
+          // step forward
+          x += Math.cos(yaw)*Math.cos(pitch)*1.3;
+          y += Math.sin(pitch)*1.3;
+          z += Math.sin(yaw)*Math.cos(pitch)*1.3;
+        }
+      
+        // chance for a small round “room” at tunnel end
+        if (rand()<0.3){
+          const r = 3+rand()*2;
+          for (let yy=-r;yy<=r;yy++){
+            for (let xx=-r;xx<=r;xx++){
+              for (let zz=-r;zz<=r;zz++){
+                if (xx*xx+yy*yy+zz*zz <= r*r){
+                  const lx=Math.floor(x)+xx-baseX;
+                  const ly=Math.floor(y)+yy;
+                  const lz=Math.floor(z)+zz-baseZ;
+                  if (ly>=1 && ly<CHUNK.Y-1 &&
+                      lx>=0 && lx<CHUNK.X && lz>=0 && lz<CHUNK.Z){
+                    c.blocks[idx(lx,ly,lz)] = BLOCK.AIR;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
 
     // -------- carve a few worm tunnels inside this chunk --------
     function carveWormsInChunk(c, count=3){
@@ -1435,7 +1500,7 @@
         
           for (let y = 0; y < CHUNK.Y; y++){
             let id = BLOCK.AIR;
-          
+          /*
             if (y <= h){
               // don’t let caves break the top block or the 1st dirt layer
               const allowCave = (y <= h - 2) && sampleCave(wx, y, wz);
@@ -1450,13 +1515,14 @@
                 id = BLOCK.DIRT;                              // just under grass
               }
             }
-          
+          */
             c.blocks[idx(x, y, z)] = id;
           }
         }
       }
-      carveWormsInChunk(c, 3);  // 0–5 works; higher = more tunnels
+      //carveWormsInChunk(c, 3);  // 0–5 works; higher = more tunnels
       // decorate this chunk with trees (unchanged)
+      carveOldCavesInChunk(c, WORLD_SEED, 2); // 2 worms per chunk (tweak for density)
       decorateChunkTrees(c, WORLD_SEED, fbm2);
       c.generated = true;
       c.dirty = true;
