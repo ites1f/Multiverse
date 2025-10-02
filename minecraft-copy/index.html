@@ -1212,6 +1212,7 @@
       return Math.max(1, Math.min(CHUNK.Y - 2, hRaw));
     }
 
+
     const FLAT_WORLD_Y = null;
 
     /* ===== World ===== */
@@ -1924,11 +1925,6 @@
       });
     }
     function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-    // ground height helper (1 block above terrain)
-    function surfaceYAt(wx, wz){
-      const hRaw = FLAT_WORLD_Y ?? sampleTerrain(wx, wz);
-      return Math.max(1, Math.min(CHUNK.Y - 2, hRaw));
-    }
 
     function takeDamage(amount){
       if (STATS.invuln > 0) return;
