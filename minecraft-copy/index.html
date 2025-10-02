@@ -1970,7 +1970,7 @@
     function respawnPlayer(){
       const gx = Math.floor(player.pos.x);
       const gz = Math.floor(player.pos.z);
-      const gy = surfaceYAt(gx, gz) + 1.01;
+      const gy = surfaceYAt(gx, gz) + 2.01;
       player.pos.set(gx + 0.5, gy, gz + 0.5);
       player.vel.set(0,0,0);
       STATS.hp = STATS.hpMax; STATS.food = 20; STATS.satur = 5; STATS.invuln = 1.0;
