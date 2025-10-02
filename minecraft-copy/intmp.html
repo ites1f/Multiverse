@@ -957,23 +957,6 @@
     dir.position.set(0.7,1,0.4); scene.add(dir);
 
     const info = document.getElementById("info");
-    // === Survival v0.1 ===
-    const STATS = {
-      hpMax: 20, hp: 20,          // 10 hearts = 20 hp
-      foodMax: 20, food: 20,      // 10 drumsticks = 20
-      satur: 5,                   // simple “buffer” for hunger ticks
-      invuln: 0                   // post-hit i-frames (seconds)
-    };
-
-    const statsLine = document.createElement("div");
-    statsLine.id = "stats";
-    statsLine.style.marginTop = "6px";
-    document.getElementById("hud").appendChild(statsLine);
-
-    function paintStats(){
-      statsLine.textContent = `❤ ${STATS.hp}/20   🍗 ${STATS.food}/20`;
-    }
-
 
     const atlas = new THREE.TextureLoader().load("atlas.png",
       () => console.log("[atlas] loaded", atlas.image?.width, "x", atlas.image?.height),
@@ -1755,8 +1738,6 @@
       player.grounded=false;
 
       // Y
-      const prevVy = player.vel.y;
-      const wasGrounded = player.grounded;
       player.pos.y += player.vel.y * dtFactor;
       const halfY = player.size.y * 0.5;
       eachCollidingBlock(player.pos,player.size,(bMin,bMax)=>{
@@ -1766,15 +1747,6 @@
         }
         if (player.vel.y < 0 && pMaxY > bMin.y && pMinY < bMax.y){
           player.pos.y = bMax.y + halfY + EPS; player.vel.y = 0; player.grounded = true;
-        }
-        // landed this frame?
-        if (!wasGrounded && player.grounded){
-          const impact = Math.max(0, -prevVy); // downward speed when we hit
-          const SAFE = 7.0;                    // tweak: no damage below this
-          if (impact > SAFE){
-            const dmg = (impact - SAFE) * 2.2; // scale to feel like hearts
-            takeDamage(dmg);
-          }
         }
       });
 
@@ -1835,9 +1807,6 @@
     regenAll();
     buildHotbar();
     buildInventory();
-    paintStats();
-    player.groundedLast = false; // optional, not required by our patch but fine
-
     INV3.hotbar.notify([...Array(9).keys()]);
     INV3.backpack.notify([...Array(27).keys()]);
 
@@ -1923,63 +1892,6 @@
         else slot.classList.remove("selected");
       });
     }
-    function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-    // ground height helper (1 block above terrain)
-    function surfaceYAt(wx, wz){
-      const hRaw = FLAT_WORLD_Y ?? sampleTerrain(wx, wz);
-      return Math.max(1, Math.min(CHUNK.Y - 2, hRaw));
-    }
-
-    function takeDamage(amount){
-      if (STATS.invuln > 0) return;
-      STATS.hp = clamp(STATS.hp - Math.ceil(amount), 0, STATS.hpMax);
-      STATS.invuln = 0.6; // 600ms of invulnerability
-      paintStats();
-      if (STATS.hp <= 0) respawnPlayer();
-    }
-
-    function healSmall(dt){
-      // tiny passive regen when well fed
-      if (STATS.food >= 18 && STATS.hp < STATS.hpMax){
-        STATS.satur -= dt * 0.8;
-        if (STATS.satur <= 0){
-          STATS.satur = 2;
-          STATS.hp = clamp(STATS.hp + 1, 0, STATS.hpMax);
-          paintStats();
-        }
-      }
-    }
-
-    function consumeFood(k){
-      STATS.food = clamp(STATS.food + k, 0, STATS.foodMax);
-      paintStats();
-    }
-
-    function hungerTick(dt, moving){
-      const base = 0.01, move = moving ? 0.03 : 0.0; // tweak feel
-      STATS.satur -= (base + move) * dt;
-      if (STATS.satur <= 0){
-        STATS.satur = 4;
-        STATS.food = clamp(STATS.food - 1, 0, STATS.foodMax);
-        paintStats();
-      }
-      // gentle starvation (stops at 0)
-      if (STATS.food <= 0 && STATS.hp > 0){
-        // small drip every second-ish
-        STATS.invuln = Math.max(STATS.invuln, 0.9);
-        takeDamage(1);
-      }
-    }
-
-    function respawnPlayer(){
-      const gx = Math.floor(player.pos.x);
-      const gz = Math.floor(player.pos.z);
-      const gy = surfaceYAt(gx, gz) + 1.01;
-      player.pos.set(gx + 0.5, gy, gz + 0.5);
-      player.vel.set(0,0,0);
-      STATS.hp = STATS.hpMax; STATS.food = 20; STATS.satur = 5; STATS.invuln = 1.0;
-      paintStats();
-    }
 
     // --- Fixed timestep loop ---
     let last = performance.now();
@@ -2028,12 +1940,6 @@
           player.pos.z = prevZ; player.vel.z = 0;
         }
       }
-      // === survival ticks ===
-      STATS.invuln = Math.max(0, STATS.invuln - dt);
-      const moving = keys.has("w")||keys.has("a")||keys.has("s")||keys.has("d")||keys.has("z");
-      hungerTick(dt, moving);
-      healSmall(dt);
-
     
       // --- camera (smooth eye height when crouched) ---
       const eyeStand  = player.size.y * 0.75;
