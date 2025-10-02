@@ -124,6 +124,12 @@
       <div id="invBackpack"></div>
     </div>
   </div>
+  <div id="hearts" style="font-size:24px; line-height:1.2"></div>
+    <div id="food"   style="font-size:24px; line-height:1.2"></div>
+    <div id="hurtOverlay"
+         style="position:fixed;top:0;left:0;width:100%;height:100%;
+                background:red;opacity:0;pointer-events:none;"></div>
+
 
   <script type="module">
     import * as THREE from "https://esm.sh/three@0.160.0";
@@ -178,6 +184,19 @@
       [BLOCK.LEAVES]: true,
       [BLOCK.GLASS]: true,
     };
+    function sampleCave(wx, wy, wz){
+      // world coords → scale down for caves
+      const nx = wx * 0.08;
+      const ny = wy * 0.08;
+      const nz = wz * 0.08;
+
+      // use fbm3 or simplex3 if you have it, else fake with hash3
+      const n = Math.sin(nx*2.1) + Math.sin(ny*2.3) + Math.sin(nz*2.7);
+
+      // threshold carves empty space
+      return (n > 1.8); // tweak threshold for more/less caves
+    }
+
     /* ===== STEP 1: Item Registry (barebones, MC-style) ===== */
     // numeric id ↔ string id (optional sugar)
     const BLOCK_NAME = {
@@ -202,6 +221,45 @@
     ]);
 
     // helpers
+    // === 1.8-style damage camera shake ===
+    const HurtCam = {
+      t: 0, dur: 0.25,  // quarter second effect
+      dir: 1             // direction (left/right)
+    };
+
+    // kick it when you take damage; strength ~= hearts lost / 2
+    function triggerHurtShake(strength = 1){
+      // tune these to taste
+      const baseDur = 0.42;              // how long the effect lasts
+      const k = Math.min(1.5, Math.max(0.2, strength)); // clamp
+      HurtCam.dur = baseDur * (0.6 + 0.4*k);
+      HurtCam.t   = HurtCam.dur;
+      HurtCam.freq = 12 + 6*Math.random();          // a bit of variety
+      HurtCam.ampYaw   = 0.015 * k;                 // small horizontal wobble
+      HurtCam.ampPitch = 0.030 * k;                 // stronger pitch kick
+      HurtCam.ampRoll  = 0.018 * k;                 // screen tilt
+    }
+
+    // returns additive {yaw,pitch,roll} for this frame
+    function stepHurtShake(dt){
+      if (HurtCam.t <= 0) return { yaw:0, pitch:0, roll:0 };
+      HurtCam.t -= dt;
+    
+      // normalized time left (0..1), squared falloff feels nice
+      const u  = Math.max(0, HurtCam.t / HurtCam.dur);
+      const env = u*u;                               // exponential-ish decay
+      const w  = HurtCam.freq * 2*Math.PI;
+    
+      // phase that moves as time elapses
+      const ph = (HurtCam.dur - HurtCam.t);
+    
+      return {
+        yaw:   env * HurtCam.ampYaw   * Math.sin(w * ph * 0.92),
+        pitch: env * HurtCam.ampPitch * Math.cos(w * ph * 1.00),
+        roll:  env * HurtCam.ampRoll  * Math.sin(w * ph * 1.12)
+      };
+    }
+
     function itemIdFromBlockId(numId){
       const name = BLOCK_NAME[numId] || "air";
       return name;
@@ -957,6 +1015,37 @@
     dir.position.set(0.7,1,0.4); scene.add(dir);
 
     const info = document.getElementById("info");
+    // === Survival v0.1 ===
+    const STATS = {
+      hpMax: 20, hp: 20,          // 10 hearts = 20 hp
+      foodMax: 20, food: 20,      // 10 drumsticks = 20
+      satur: 5,                   // simple “buffer” for hunger ticks
+      invuln: 0                   // post-hit i-frames (seconds)
+    };
+
+    const statsLine = document.createElement("div");
+    statsLine.id = "stats";
+    statsLine.style.marginTop = "6px";
+    document.getElementById("hud").appendChild(statsLine);
+
+    function paintStats(){
+      const heartFull = "❤", heartEmpty = "♡";
+      const foodFull = "🍗", foodEmpty = "·";
+    
+      let hearts = "";
+      for (let i=0;i<STATS.hpMax;i+=2){
+        hearts += (STATS.hp >= i+2) ? heartFull : heartEmpty;
+      }
+      let food = "";
+      for (let i=0;i<STATS.foodMax;i+=2){
+        food += (STATS.food >= i+2) ? foodFull : foodEmpty;
+      }
+    
+      document.getElementById("hearts").textContent = hearts;
+      document.getElementById("food").textContent = food;
+    }
+
+
 
     const atlas = new THREE.TextureLoader().load("atlas.png",
       () => console.log("[atlas] loaded", atlas.image?.width, "x", atlas.image?.height),
@@ -1195,6 +1284,7 @@
       return Math.max(1, Math.min(CHUNK.Y - 2, hRaw));
     }
 
+
     const FLAT_WORLD_Y = null;
 
     /* ===== World ===== */
@@ -1214,29 +1304,46 @@
     const idx = (x,y,z)=> x + CHUNK.X*(z + CHUNK.Z*y);
 
     function generateChunk(c){
-      if(c.generated) return;
-      const baseX=c.cx*CHUNK.X, baseZ=c.cz*CHUNK.Z;
-      for(let z=0;z<CHUNK.Z;z++){
-        for(let x=0;x<CHUNK.X;x++){
-          const wx=baseX+x, wz=baseZ+z;
-          const hRaw = FLAT_WORLD_Y ?? sampleTerrain(wx,wz);
+      if (c.generated) return;
+      const baseX = c.cx * CHUNK.X, baseZ = c.cz * CHUNK.Z;
+    
+      for (let z = 0; z < CHUNK.Z; z++){
+        for (let x = 0; x < CHUNK.X; x++){
+          const wx = baseX + x, wz = baseZ + z;
+          const hRaw = (typeof FLAT_WORLD_Y !== "undefined" && FLAT_WORLD_Y !== null) ? FLAT_WORLD_Y : sampleTerrain(wx, wz);
           const h = Math.max(1, Math.min(CHUNK.Y - 2, hRaw));
-          for(let y=0;y<CHUNK.Y;y++){
-            let id=BLOCK.AIR;
-            if(y===h) id=BLOCK.GRASS;
-            else if(y<h-3) id=BLOCK.STONE;
-            else if(y<h) id=BLOCK.DIRT;
-            c.blocks[idx(x,y,z)]=id;
+        
+          for (let y = 0; y < CHUNK.Y; y++){
+            let id = BLOCK.AIR;
+          
+            if (y <= h){
+              // don’t let caves break the top block or the 1st dirt layer
+              const allowCave = (y <= h - 2) && sampleCave(wx, y, wz);
+            
+              if (allowCave){
+                id = BLOCK.AIR;                               // carve cave
+              } else if (y === h){
+                id = BLOCK.GRASS;                             // surface
+              } else if (y < h - 3){
+                id = BLOCK.STONE;                             // deep
+              } else {
+                id = BLOCK.DIRT;                              // just under grass
+              }
+            }
+          
+            c.blocks[idx(x, y, z)] = id;
           }
         }
       }
-      // decorate this chunk with trees
+    
+      // decorate this chunk with trees (unchanged)
       decorateChunkTrees(c, WORLD_SEED, fbm2);
-      c.generated=true;
-      c.dirty=true;
+      c.generated = true;
+      c.dirty = true;
       enqueueBuild(c);
-      markNeighborsDirty(c.cx, c.cz); // keep borders fresh
+      markNeighborsDirty(c.cx, c.cz);
     }
+
 
     function shouldDrawFace(cur, neighbor){
       if (neighbor === BLOCK.AIR) return true;
@@ -1738,6 +1845,8 @@
       player.grounded=false;
 
       // Y
+      const prevVy = player.vel.y;
+      const wasGrounded = player.grounded;
       player.pos.y += player.vel.y * dtFactor;
       const halfY = player.size.y * 0.5;
       eachCollidingBlock(player.pos,player.size,(bMin,bMax)=>{
@@ -1747,6 +1856,15 @@
         }
         if (player.vel.y < 0 && pMaxY > bMin.y && pMinY < bMax.y){
           player.pos.y = bMax.y + halfY + EPS; player.vel.y = 0; player.grounded = true;
+        }
+        // landed this frame?
+        if (!wasGrounded && player.grounded){
+          const impact = Math.max(0, -prevVy); // downward speed when we hit
+          const SAFE = 70.0;                    // tweak: no damage below this
+          if (impact > SAFE){
+            const dmg = (impact - SAFE) * 2.2; // scale to feel like hearts
+            takeDamage(dmg);
+          }
         }
       });
 
@@ -1807,6 +1925,9 @@
     regenAll();
     buildHotbar();
     buildInventory();
+    paintStats();
+    player.groundedLast = false; // optional, not required by our patch but fine
+
     INV3.hotbar.notify([...Array(9).keys()]);
     INV3.backpack.notify([...Array(27).keys()]);
 
@@ -1892,6 +2013,69 @@
         else slot.classList.remove("selected");
       });
     }
+    function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+    function takeDamage(amount){
+      if (STATS.invuln > 0) return;
+      STATS.hp = clamp(STATS.hp - Math.ceil(amount), 0, STATS.hpMax);
+      STATS.invuln = 0.6;
+    /*
+      // trigger camera nudge
+      HurtCam.t = HurtCam.dur;
+      HurtCam.dir = (Math.random()<0.5 ? -1 : 1); // left or right tilt
+    */
+      paintStats();
+      if (STATS.hp <= 0) respawnPlayer();
+    }
+
+
+
+    function healSmall(dt){
+      // tiny passive regen when well fed
+      if (STATS.food >= 18 && STATS.hp < STATS.hpMax){
+        STATS.satur -= dt * 0.8;
+        if (STATS.satur <= 0){
+          STATS.satur = 2;
+          STATS.hp = clamp(STATS.hp + 1, 0, STATS.hpMax);
+          paintStats();
+        }
+      }
+    }
+
+    function consumeFood(k){
+      STATS.food = clamp(STATS.food + k, 0, STATS.foodMax);
+      paintStats();
+    }
+
+    function hungerTick(dt, moving){
+      const base = 0.01, move = moving ? 0.03 : 0.0; // tweak feel
+      STATS.satur -= (base + move) * dt;
+      if (STATS.satur <= 0){
+        STATS.satur = 4;
+        STATS.food = clamp(STATS.food - 1, 0, STATS.foodMax);
+        paintStats();
+      }
+      // gentle starvation (stops at 0)
+      if (STATS.food <= 0 && STATS.hp > 0){
+        // small drip every second-ish
+        STATS.invuln = Math.max(STATS.invuln, 0.9);
+        takeDamage(1);
+      }
+    }
+
+    function respawnPlayer(){
+      const gx = 0, gz = 0;                  // fixed spawn coords
+      const gy = surfaceYAt(gx, gz) + 2.01;  // 2 blocks above ground for safety
+      player.pos.set(gx + 0.5, gy, gz + 0.5);
+      player.vel.set(0,0,0);
+    
+      STATS.hp    = STATS.hpMax;
+      STATS.food  = 20;
+      STATS.satur = 5;
+      STATS.invuln = 1.0;
+      paintStats();
+      console.log("Respawned at spawn (0,0) on Y:", gy);
+    }
 
     // --- Fixed timestep loop ---
     let last = performance.now();
@@ -1900,8 +2084,16 @@
 
     function gameStep(dt){
       // --- look ---
-      camera.rotation.set(pitch, yaw, 0, "YXZ");
-    
+      //camera.rotation.set(pitch, yaw, 0, "YXZ");
+      // in gameStep(dt) after you update yaw/pitch from mouse:
+      const shake = stepHurtShake(dt);
+
+      // keep your normal pitch clamp, then add shake
+      const pitchFinal = THREE.MathUtils.clamp(pitch + shake.pitch, -Math.PI/2+0.01, Math.PI/2-0.01);
+      const yawFinal   = yaw + shake.yaw;
+
+      camera.rotation.set(pitchFinal, yawFinal, shake.roll, "YXZ");
+
       // --- movement vectors ---
       const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(-1).normalize();
       const right   = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
@@ -1940,6 +2132,12 @@
           player.pos.z = prevZ; player.vel.z = 0;
         }
       }
+      // === survival ticks ===
+      STATS.invuln = Math.max(0, STATS.invuln - dt);
+      const moving = keys.has("w")||keys.has("a")||keys.has("s")||keys.has("d")||keys.has("z");
+      hungerTick(dt, moving);
+      healSmall(dt);
+
     
       // --- camera (smooth eye height when crouched) ---
       const eyeStand  = player.size.y * 0.75;
