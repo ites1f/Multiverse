@@ -208,6 +208,45 @@
     ]);
 
     // helpers
+    // === 1.8-style damage camera shake ===
+    const HurtCam = {
+      t: 0, dur: 0, freq: 13,            // seconds, Hz
+      ampYaw: 0, ampPitch: 0, ampRoll: 0 // radians
+    };
+
+    // kick it when you take damage; strength ~= hearts lost / 2
+    function triggerHurtShake(strength = 1){
+      // tune these to taste
+      const baseDur = 0.42;              // how long the effect lasts
+      const k = Math.min(1.5, Math.max(0.2, strength)); // clamp
+      HurtCam.dur = baseDur * (0.6 + 0.4*k);
+      HurtCam.t   = HurtCam.dur;
+      HurtCam.freq = 12 + 6*Math.random();          // a bit of variety
+      HurtCam.ampYaw   = 0.015 * k;                 // small horizontal wobble
+      HurtCam.ampPitch = 0.030 * k;                 // stronger pitch kick
+      HurtCam.ampRoll  = 0.018 * k;                 // screen tilt
+    }
+
+    // returns additive {yaw,pitch,roll} for this frame
+    function stepHurtShake(dt){
+      if (HurtCam.t <= 0) return { yaw:0, pitch:0, roll:0 };
+      HurtCam.t -= dt;
+    
+      // normalized time left (0..1), squared falloff feels nice
+      const u  = Math.max(0, HurtCam.t / HurtCam.dur);
+      const env = u*u;                               // exponential-ish decay
+      const w  = HurtCam.freq * 2*Math.PI;
+    
+      // phase that moves as time elapses
+      const ph = (HurtCam.dur - HurtCam.t);
+    
+      return {
+        yaw:   env * HurtCam.ampYaw   * Math.sin(w * ph * 0.92),
+        pitch: env * HurtCam.ampPitch * Math.cos(w * ph * 1.00),
+        roll:  env * HurtCam.ampRoll  * Math.sin(w * ph * 1.12)
+      };
+    }
+
     function itemIdFromBlockId(numId){
       const name = BLOCK_NAME[numId] || "air";
       return name;
@@ -1949,14 +1988,15 @@
     function takeDamage(amount){
       if (STATS.invuln > 0) return;
       STATS.hp = clamp(STATS.hp - Math.ceil(amount), 0, STATS.hpMax);
-      const overlay = document.getElementById("hurtOverlay");
-      overlay.style.opacity = 0.6;
-      setTimeout(()=>overlay.style.opacity=0,150); // fade quickly
-
-      STATS.invuln = 0.6; // 600ms of invulnerability
+      STATS.invuln = 0.6;
+    
+      // 🔔 kick the hurt-cam: scale by damage (hearts/2 ≈ amount/2)
+      triggerHurtShake(amount * 0.5);
+    
       paintStats();
       if (STATS.hp <= 0) respawnPlayer();
     }
+
 
     function healSmall(dt){
       // tiny passive regen when well fed
@@ -2012,8 +2052,16 @@
 
     function gameStep(dt){
       // --- look ---
-      camera.rotation.set(pitch, yaw, 0, "YXZ");
-    
+      //camera.rotation.set(pitch, yaw, 0, "YXZ");
+      // in gameStep(dt) after you update yaw/pitch from mouse:
+      const shake = stepHurtShake(dt);
+
+      // keep your normal pitch clamp, then add shake
+      const pitchFinal = THREE.MathUtils.clamp(pitch + shake.pitch, -Math.PI/2+0.01, Math.PI/2-0.01);
+      const yawFinal   = yaw + shake.yaw;
+
+      camera.rotation.set(pitchFinal, yawFinal, shake.roll, "YXZ");
+
       // --- movement vectors ---
       const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(-1).normalize();
       const right   = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
