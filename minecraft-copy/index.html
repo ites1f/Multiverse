@@ -2326,7 +2326,7 @@
 
     
       // --- camera (smooth eye height when crouched) ---
-      const eyeStand  = player.size.y * 0.75;
+      const eyeStand  = player.size.y * 0.5;
       const eyeCrouch = eyeStand - 0.30;
       const targetEye = keys.has("shift") ? eyeCrouch : eyeStand;
       eyeY += (targetEye - eyeY) * Math.min(1, dt * 10);
