@@ -1989,11 +1989,11 @@
       if (STATS.invuln > 0) return;
       STATS.hp = clamp(STATS.hp - Math.ceil(amount), 0, STATS.hpMax);
       STATS.invuln = 0.6;
-    
+    /*
       // trigger camera nudge
       HurtCam.t = HurtCam.dur;
       HurtCam.dir = (Math.random()<0.5 ? -1 : 1); // left or right tilt
-    
+    */
       paintStats();
       if (STATS.hp <= 0) respawnPlayer();
     }
