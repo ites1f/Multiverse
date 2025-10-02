@@ -210,8 +210,8 @@
     // helpers
     // === 1.8-style damage camera shake ===
     const HurtCam = {
-      t: 0, dur: 0, freq: 13,            // seconds, Hz
-      ampYaw: 0, ampPitch: 0, ampRoll: 0 // radians
+      t: 0, dur: 0.25,  // quarter second effect
+      dir: 1             // direction (left/right)
     };
 
     // kick it when you take damage; strength ~= hearts lost / 2
@@ -1990,12 +1990,14 @@
       STATS.hp = clamp(STATS.hp - Math.ceil(amount), 0, STATS.hpMax);
       STATS.invuln = 0.6;
     
-      // 🔔 kick the hurt-cam: scale by damage (hearts/2 ≈ amount/2)
-      triggerHurtShake(amount * 0.5);
+      // trigger camera nudge
+      HurtCam.t = HurtCam.dur;
+      HurtCam.dir = (Math.random()<0.5 ? -1 : 1); // left or right tilt
     
       paintStats();
       if (STATS.hp <= 0) respawnPlayer();
     }
+
 
 
     function healSmall(dt){
