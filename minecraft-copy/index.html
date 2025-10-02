@@ -124,6 +124,12 @@
       <div id="invBackpack"></div>
     </div>
   </div>
+  <div id="hearts" style="font-size:24px; line-height:1.2"></div>
+    <div id="food"   style="font-size:24px; line-height:1.2"></div>
+    <div id="hurtOverlay"
+         style="position:fixed;top:0;left:0;width:100%;height:100%;
+                background:red;opacity:0;pointer-events:none;"></div>
+
 
   <script type="module">
     import * as THREE from "https://esm.sh/three@0.160.0";
@@ -971,8 +977,22 @@
     document.getElementById("hud").appendChild(statsLine);
 
     function paintStats(){
-      statsLine.textContent = `❤ ${STATS.hp}/20   🍗 ${STATS.food}/20`;
+      const heartFull = "❤", heartEmpty = "♡";
+      const foodFull = "🍗", foodEmpty = "·";
+    
+      let hearts = "";
+      for (let i=0;i<STATS.hpMax;i+=2){
+        hearts += (STATS.hp >= i+2) ? heartFull : heartEmpty;
+      }
+      let food = "";
+      for (let i=0;i<STATS.foodMax;i+=2){
+        food += (STATS.food >= i+2) ? foodFull : foodEmpty;
+      }
+    
+      document.getElementById("hearts").textContent = hearts;
+      document.getElementById("food").textContent = food;
     }
+
 
 
     const atlas = new THREE.TextureLoader().load("atlas.png",
@@ -1929,6 +1949,10 @@
     function takeDamage(amount){
       if (STATS.invuln > 0) return;
       STATS.hp = clamp(STATS.hp - Math.ceil(amount), 0, STATS.hpMax);
+      const overlay = document.getElementById("hurtOverlay");
+      overlay.style.opacity = 0.6;
+      setTimeout(()=>overlay.style.opacity=0,150); // fade quickly
+
       STATS.invuln = 0.6; // 600ms of invulnerability
       paintStats();
       if (STATS.hp <= 0) respawnPlayer();
