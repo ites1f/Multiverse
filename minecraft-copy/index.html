@@ -1752,6 +1752,7 @@
 
     function enqueueBuild(ch){ if (!buildQueue.includes(ch)) buildQueue.push(ch); }
     function buildMesh(c){
+      let hasTransparent = false;
       if (!c.dirty) return;
       c.dirty = false;
       if(c.mesh){
