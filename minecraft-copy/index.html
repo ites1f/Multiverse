@@ -2371,7 +2371,7 @@
         // landed this frame?
         if (!wasGrounded && player.grounded){
           const impact = Math.max(0, -prevVy); // downward speed when we hit
-          const SAFE = 16.0;                    // tweak: no damage below this
+          const SAFE = 10.0;                    // tweak: no damage below this
           if (impact > SAFE){
             const dmg = (impact - SAFE) * 0.4; // scale to feel like hearts
             takeDamage(dmg);
@@ -2597,20 +2597,18 @@
 
     function gameStep(dt){
       // --- look ---
-      //camera.rotation.set(pitch, yaw, 0, "YXZ");
-      // in gameStep(dt) after you update yaw/pitch from mouse:
       const shake = stepHurtShake(dt);
-
+    
       // keep your normal pitch clamp, then add shake
       const pitchFinal = THREE.MathUtils.clamp(pitch + shake.pitch, -Math.PI/2+0.01, Math.PI/2-0.01);
       const yawFinal   = yaw + shake.yaw;
-
+    
       camera.rotation.set(pitchFinal, yawFinal, shake.roll, "YXZ");
-
+    
       // --- movement vectors ---
       const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).multiplyScalar(-1).normalize();
       const right   = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).normalize();
-    
+
       if (movementEnabled()){
         let speed = WALK;
         if (keys.has("z"))     speed = WALK * RUN_MULT;
@@ -2622,7 +2620,6 @@
         if (keys.has("d")) player.vel.addScaledVector(right,    speed*dt);
         if (keys.has(" ") && player.grounded) player.vel.y = JUMP_VEL;
       }
-
     
       // --- gravity & sun ---
       player.vel.y += GRAVITY * dt;
@@ -2638,6 +2635,7 @@
       scheduleFriction(dt);
     
       maybeSendMove(dt);
+    
       // --- sneak: don't step off edges (post-move, safe) ---
       if (keys.has("shift") && player.grounded){
         const nowSupported  = centerSupportedAt(player.pos.x, player.pos.z, feetY);
@@ -2647,12 +2645,12 @@
           player.pos.z = prevZ; player.vel.z = 0;
         }
       }
+    
       // === survival ticks ===
       STATS.invuln = Math.max(0, STATS.invuln - dt);
       const moving = keys.has("w")||keys.has("a")||keys.has("s")||keys.has("d")||keys.has("z");
       hungerTick(dt, moving);
       healSmall(dt);
-
     
       // --- camera (smooth eye height when crouched) ---
       const eyeStand  = player.size.y * 0.5;
@@ -2667,10 +2665,21 @@
         buildMesh(buildQueue.shift());
       }
     
+      // --- remote players lerp ---
+      for (let rp of remotePlayers.values()) {
+        if (!rp.targetPos) continue;
+        // lerp position
+        rp.position.lerp(rp.targetPos, 0.2); // 0.2 = smoothing factor
+        // lerp yaw
+        rp.rotation.y += (rp.targetYaw - rp.rotation.y) * 0.2;
+      }
+    
+      // --- debug info ---
       info.textContent =
         `Pos ${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(1)}, ${player.pos.z.toFixed(1)} | ` +
         `grounded:${player.grounded} | queue:${buildQueue.length}`;
     }
+
 
     let frameCount = 0;
     let fpsTimer = 0;
