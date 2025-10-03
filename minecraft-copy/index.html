@@ -214,23 +214,26 @@
     // store remote players by id
     const remotePlayers = new Map();
 
-    function updateRemotePlayer(data){
+    function updateRemotePlayer(data) {
       let rp = remotePlayers.get(data.id);
     
-      if (!rp){
+      if (!rp) {
+        // load log texture from atlas
         const tex = new THREE.TextureLoader().load("player.png");
         tex.magFilter = THREE.NearestFilter;
         tex.minFilter = THREE.NearestFilter;
-
+      
+        // skinny box (log body)
         const geom = new THREE.BoxGeometry(0.6, 1.65, 0.6);
-
-        // crop the UVs so it uses center 60% of the texture
-        function cropUV(geometry, u0, u1, v0, v1){
+      
+        // crop UVs: only center 60% horizontally
+        function cropUV(geometry, u0, u1, v0, v1) {
           const uv = geometry.attributes.uv;
-          for (let i = 0; i < uv.count; i++){
+          for (let i = 0; i < uv.count; i++) {
             const u = uv.getX(i);
             const v = uv.getY(i);
-            uv.setXY(i,
+            uv.setXY(
+              i,
               u0 + (u1 - u0) * u,
               v0 + (v1 - v0) * v
             );
@@ -239,18 +242,24 @@
         }
         cropUV(geom, 0.2, 0.8, 0.0, 1.0);
       
-        const mat  = new THREE.MeshLambertMaterial({ map: tex });
+        const mat = new THREE.MeshLambertMaterial({ map: tex });
         rp = new THREE.Mesh(geom, mat);
         rp.castShadow = true;
         rp.receiveShadow = true;
         scene.add(rp);
+      
+        // attach target info for lerp
+        rp.targetPos = new THREE.Vector3();
+        rp.targetYaw = 0;
+      
         remotePlayers.set(data.id, rp);
       }
     
-      // update position & rotation
-      rp.position.set(data.x, data.y, data.z);
-      rp.rotation.y = data.yaw;
+      // update target position/rotation (not instant!)
+      rp.targetPos.set(data.x, data.y, data.z);
+      rp.targetYaw = data.yaw;
     }
+
     let lastSend = 0;
     function maybeSendMove(dt){
       lastSend += dt;
