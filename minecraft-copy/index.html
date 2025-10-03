@@ -1576,8 +1576,7 @@
 
 
     function shouldDrawFace(cur, neighbor){
-      if (neighbor === BLOCK.AIR) return true;
-      if (neighbor === BLOCK.GLASS && cur !== BLOCK.GLASS) return true;
+      if (BLOCK_TRANSPARENT[neighbor]) return true;
       return false;
     }
 
@@ -1828,19 +1827,21 @@
             
               // two crossed quads
               pushQuad(
-                new THREE.Vector3(bx,   by,   bz),
-                new THREE.Vector3(bx+1, by+1, bz+1),
-                new THREE.Vector3(bx+1, by,   bz+1),
-                new THREE.Vector3(bx,   by+1, bz),
+                new THREE.Vector3(bx,   by,   bz),       // bottom-left
+                new THREE.Vector3(bx,   by+1, bz),       // top-left
+                new THREE.Vector3(bx+1, by+1, bz+1),     // top-right
+                new THREE.Vector3(bx+1, by,   bz+1),     // bottom-right
                 new THREE.Vector3(0,1,0), rect
               );
+
               pushQuad(
-                new THREE.Vector3(bx+1, by,   bz),
-                new THREE.Vector3(bx,   by+1, bz+1),
-                new THREE.Vector3(bx,   by,   bz+1),
-                new THREE.Vector3(bx+1, by+1, bz),
+                new THREE.Vector3(bx+1, by,   bz),       // bottom-right
+                new THREE.Vector3(bx+1, by+1, bz),       // top-right
+                new THREE.Vector3(bx,   by+1, bz+1),     // top-left
+                new THREE.Vector3(bx,   by,   bz+1),     // bottom-left
                 new THREE.Vector3(0,1,0), rect
               );
+
               continue; // skip normal cube rendering
             }
           
