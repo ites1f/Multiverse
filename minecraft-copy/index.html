@@ -1826,39 +1826,23 @@
               const bx=baseX+x, by=y, bz=baseZ+z;
               const rect = UV_TILES.TALL_GRASS;
             
-              function pushBillboard(p0,p1,p2,p3){
-                pos.push(
-                  p0.x,p0.y,p0.z,
-                  p1.x,p1.y,p1.z,
-                  p2.x,p2.y,p2.z,
-                  p3.x,p3.y,p3.z
-                );
-                norm.push(0,1,0, 0,1,0, 0,1,0, 0,1,0); // flat normals
-                uv.push(
-                  rect.u0, rect.v1,
-                  rect.u1, rect.v1,
-                  rect.u1, rect.v0,
-                  rect.u0, rect.v0
-                );
-              }
-            
               // two crossed quads
-              pushBillboard(
+              pushQuad(
                 new THREE.Vector3(bx,   by,   bz),
-                new THREE.Vector3(bx+1, by,   bz+1),
                 new THREE.Vector3(bx+1, by+1, bz+1),
-                new THREE.Vector3(bx,   by+1, bz)
+                new THREE.Vector3(bx+1, by,   bz+1),
+                new THREE.Vector3(bx,   by+1, bz),
+                new THREE.Vector3(0,1,0), rect
               );
-              pushBillboard(
+              pushQuad(
                 new THREE.Vector3(bx+1, by,   bz),
-                new THREE.Vector3(bx,   by,   bz+1),
                 new THREE.Vector3(bx,   by+1, bz+1),
-                new THREE.Vector3(bx+1, by+1, bz)
+                new THREE.Vector3(bx,   by,   bz+1),
+                new THREE.Vector3(bx+1, by+1, bz),
+                new THREE.Vector3(0,1,0), rect
               );
-            
-              continue; // skip the normal cube
+              continue; // skip normal cube rendering
             }
-
           
             // normal cube blocks
             for(let d=0;d<6;d++){
@@ -2130,7 +2114,7 @@
           for(let x=minX;x<=maxX;x++){
             for(let y=minY;y<=maxY;y++){
               for(let z=minZ;z<=maxZ;z++){
-                if(getBlock(x,y,z)!==BLOCK.AIR){
+                if (isSolid(getBlock(x,y,z))){
                   cb(new THREE.Vector3(x,y,z), new THREE.Vector3(x+1,y+1,z+1));
                 }
               }
