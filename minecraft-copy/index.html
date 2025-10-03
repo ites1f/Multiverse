@@ -1287,7 +1287,7 @@
     atlas.wrapT = THREE.ClampToEdgeWrapping;
     if (atlas.colorSpace !== undefined) atlas.colorSpace = THREE.SRGBColorSpace;
 
-    let CHUNK_MAT = new THREE.MeshLambertMaterial({ map: atlas, fog: true, side: THREE.DoubleSide });
+    let CHUNK_MAT = new THREE.MeshLambertMaterial({ map: atlas, fog: true, transparent: true, alphatest: true, side: THREE.DoubleSide });
 
     // Tiles (4x4 atlas)
     const TILES_X = 4, TILES_Y = 4;
