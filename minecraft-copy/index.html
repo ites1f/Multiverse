@@ -1287,7 +1287,19 @@
     atlas.wrapT = THREE.ClampToEdgeWrapping;
     if (atlas.colorSpace !== undefined) atlas.colorSpace = THREE.SRGBColorSpace;
 
-    let CHUNK_MAT = new THREE.MeshLambertMaterial({ map: atlas, fog: true, transparent: true, alphatest: true, side: THREE.DoubleSide });
+    const CHUNK_MAT_OPAQUE = new THREE.MeshLambertMaterial({
+      map: atlas,
+      fog: true
+    });
+
+    const CHUNK_MAT_TRANSPARENT = new THREE.MeshLambertMaterial({
+      map: atlas,
+      fog: true,
+      transparent: true,
+      alphaTest: 0.5,
+      side: THREE.DoubleSide
+    });
+
 
     // Tiles (4x4 atlas)
     const TILES_X = 4, TILES_Y = 4;
@@ -1892,7 +1904,7 @@
       geom.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));
       geom.computeBoundingSphere();
     
-      c.mesh=new THREE.Mesh(geom, CHUNK_MAT);
+      c.mesh = new THREE.Mesh(geom, hasTransparent ? CHUNK_MAT_TRANSPARENT : CHUNK_MAT_OPAQUE);
       c.mesh.castShadow = true;
       c.mesh.receiveShadow = true;
       scene.add(c.mesh);
