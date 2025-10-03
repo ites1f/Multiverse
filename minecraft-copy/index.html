@@ -1768,51 +1768,65 @@
       const addFace=(x,y,z,dir,blockId)=>{
         const bx=baseX+x, by=y, bz=baseZ+z;
         const rect = uvFor(blockId, dir);
+      
         switch(dir){
-          case 0:
+          case 0: // +X
             pushQuad(
-              new THREE.Vector3(bx+1,by,  bz),
-              new THREE.Vector3(bx+1,by+1,bz),
-              new THREE.Vector3(bx+1,by+1,bz+1),
-              new THREE.Vector3(bx+1,by,  bz+1),
-              new THREE.Vector3(1,0,0), rect); break;
-          case 1:
+              new THREE.Vector3(bx+1,by,  bz),       // bottom-left
+              new THREE.Vector3(bx+1,by+1,bz),       // top-left
+              new THREE.Vector3(bx+1,by+1,bz+1),     // top-right
+              new THREE.Vector3(bx+1,by,  bz+1),     // bottom-right
+              new THREE.Vector3(1,0,0), rect
+            );
+            break;
+          case 1: // -X
             pushQuad(
-              new THREE.Vector3(bx,by,  bz+1),
-              new THREE.Vector3(bx,by+1,bz+1),
-              new THREE.Vector3(bx,by+1,bz),
-              new THREE.Vector3(bx,by,  bz),
-              new THREE.Vector3(-1,0,0), rect); break;
-          case 2:
+              new THREE.Vector3(bx,by,  bz+1),       // bottom-left
+              new THREE.Vector3(bx,by+1,bz+1),       // top-left
+              new THREE.Vector3(bx,by+1,bz),         // top-right
+              new THREE.Vector3(bx,by,  bz),         // bottom-right
+              new THREE.Vector3(-1,0,0), rect
+            );
+            break;
+          case 2: // +Y
             pushQuad(
-              new THREE.Vector3(bx,  by+1,bz),
-              new THREE.Vector3(bx,  by+1,bz+1),
-              new THREE.Vector3(bx+1,by+1,bz+1),
-              new THREE.Vector3(bx+1,by+1,bz),
-              new THREE.Vector3(0,1,0), rect); break;
-          case 3:
+              new THREE.Vector3(bx,  by+1,bz),       // bottom-left
+              new THREE.Vector3(bx,  by+1,bz+1),     // top-left
+              new THREE.Vector3(bx+1,by+1,bz+1),     // top-right
+              new THREE.Vector3(bx+1,by+1,bz),       // bottom-right
+              new THREE.Vector3(0,1,0), rect
+            );
+            break;
+          case 3: // -Y
             pushQuad(
-              new THREE.Vector3(bx,  by,  bz+1),
-              new THREE.Vector3(bx,  by,  bz),
-              new THREE.Vector3(bx+1,by,  bz),
-              new THREE.Vector3(bx+1,by,  bz+1),
-              new THREE.Vector3(0,-1,0), rect); break;
-          case 4:
+              new THREE.Vector3(bx,  by,  bz),       // bottom-left
+              new THREE.Vector3(bx,  by,  bz+1),     // top-left
+              new THREE.Vector3(bx+1,by,  bz+1),     // top-right
+              new THREE.Vector3(bx+1,by,  bz),       // bottom-right
+              new THREE.Vector3(0,-1,0), rect
+            );
+            break;
+          case 4: // +Z
             pushQuad(
-              new THREE.Vector3(bx+1,by,  bz+1),
-              new THREE.Vector3(bx+1,by+1,bz+1),
-              new THREE.Vector3(bx,  by+1,bz+1),
-              new THREE.Vector3(bx,  by,  bz+1),
-              new THREE.Vector3(0,0,1), rect); break;
-          case 5:
+              new THREE.Vector3(bx,  by,  bz+1),     // bottom-left
+              new THREE.Vector3(bx,  by+1,bz+1),     // top-left
+              new THREE.Vector3(bx+1,by+1,bz+1),     // top-right
+              new THREE.Vector3(bx+1,by,  bz+1),     // bottom-right
+              new THREE.Vector3(0,0,1), rect
+            );
+            break;
+          case 5: // -Z
             pushQuad(
-              new THREE.Vector3(bx,  by,  bz),
-              new THREE.Vector3(bx,  by+1,bz),
-              new THREE.Vector3(bx+1,by+1,bz),
-              new THREE.Vector3(bx+1,by,  bz),
-              new THREE.Vector3(0,0,-1), rect); break;
+              new THREE.Vector3(bx+1,by,  bz),       // bottom-left
+              new THREE.Vector3(bx+1,by+1,bz),       // top-left
+              new THREE.Vector3(bx,  by+1,bz),       // top-right
+              new THREE.Vector3(bx,  by,  bz),       // bottom-right
+              new THREE.Vector3(0,0,-1), rect
+            );
+            break;
         }
       };
+
     
       for(let y=0;y<CHUNK.Y;y++){
         for(let z=0;z<CHUNK.Z;z++){
