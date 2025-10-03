@@ -254,7 +254,7 @@
     client.channel("world:"+world)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "world_events", filter: `world=eq.${world}` },
+        { event: "INSERT", schema: "public", table: "world_events" },
         (payload) => {
           const e = payload.new;
           if (e.type === "player_move") updateRemotePlayer(e.payload);
