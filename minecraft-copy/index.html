@@ -1306,6 +1306,11 @@
     statsLine.id = "stats";
     statsLine.style.marginTop = "6px";
     document.getElementById("hud").appendChild(statsLine);
+    const fpsLine = document.createElement("div");
+    fpsLine.id = "fpsLine";
+    fpsLine.style.marginTop = "4px";
+    document.getElementById("hud").appendChild(fpsLine);
+
 
     function paintStats(){
       // draw hearts only (every 2 hp = 1 heart)
