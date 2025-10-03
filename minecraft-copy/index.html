@@ -177,13 +177,18 @@
 
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:256, Z:16 };
-    const BLOCK = { AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4, LOG:5, LEAVES:6};
+    const BLOCK = {
+      AIR:0, STONE:1, GRASS:2, DIRT:3, GLASS:4,
+      LOG:5, LEAVES:6, TALL_GRASS:7
+    };
     let CURRENT_BLOCK = BLOCK.STONE;
     const BLOCK_TRANSPARENT = {
       [BLOCK.AIR]: true,
       [BLOCK.LEAVES]: true,
       [BLOCK.GLASS]: true,
+      [BLOCK.TALL_GRASS]: true,
     };
+
     // --- Held item in hand ---
     let heldMesh = null;
     function updateHeldItem(){
@@ -392,11 +397,12 @@
     const BLOCK_NAME = {
       [BLOCK.AIR]:   "air",
       [BLOCK.STONE]: "stone",
-      [BLOCK.GRASS]: "grass",
+      [BLOCK.GRASS]: "grass_block",
       [BLOCK.DIRT]:  "dirt",
       [BLOCK.GLASS]: "glass",
       [BLOCK.LOG]:   "oak_log",
       [BLOCK.LEAVES]:"oak_leaves",
+      [BLOCK.TALL_GRASS]:"tall_grass",
     };
 
     // registry entries (what MC would call “item defs”)
@@ -408,6 +414,7 @@
       ["glass",      { id:"glass",      maxStack:64, tags:new Set(["block","transparent"]) }],
       ["oak_log",    { id:"oak_log",    maxStack:64, tags:new Set(["block","log","wood"]) }],
       ["oak_leaves", { id:"oak_leaves", maxStack:64, tags:new Set(["block","leaves"]) }],
+      ["tall_grass", { id:"tall_grass", maxStack:64, tags:new Set(["plant","transparent"]) }]
     ]);
 
     // helpers
@@ -1300,7 +1307,8 @@
       DIRT:       tileUV(1,0),
       GLASS:      tileUV(0,1),
       LOG:        tileUV(1,1),
-      LEAVES:     tileUV(2,1)
+      LEAVES:     tileUV(2,1),
+      TALL_GRASS: tileUV(3,1)
     };
     function uvFor(blockId, faceDir){
       if (blockId === BLOCK.STONE) return UV_TILES.STONE;
@@ -1711,9 +1719,6 @@
         c.mesh.geometry.dispose();
         c.mesh.castShadow = true;
         c.mesh.receiveShadow = true;
-
-        // DO NOT dispose shared material
-        // c.mesh.material.dispose?.();
         c.mesh = null;
       }
     
@@ -1786,6 +1791,31 @@
           for(let x=0;x<CHUNK.X;x++){
             const id=c.blocks[idx(x,y,z)];
             if(id===BLOCK.AIR) continue;
+          
+            // --- SPECIAL CASE: tall grass (crossed quads) ---
+            if (id === BLOCK.TALL_GRASS){
+              const bx=baseX+x, by=y, bz=baseZ+z;
+              const rect = UV_TILES.TALL_GRASS;
+            
+              // two crossed quads
+              pushQuad(
+                new THREE.Vector3(bx,   by,   bz),
+                new THREE.Vector3(bx+1, by+1, bz+1),
+                new THREE.Vector3(bx+1, by,   bz+1),
+                new THREE.Vector3(bx,   by+1, bz),
+                new THREE.Vector3(0,1,0), rect
+              );
+              pushQuad(
+                new THREE.Vector3(bx+1, by,   bz),
+                new THREE.Vector3(bx,   by+1, bz+1),
+                new THREE.Vector3(bx,   by,   bz+1),
+                new THREE.Vector3(bx+1, by+1, bz),
+                new THREE.Vector3(0,1,0), rect
+              );
+              continue; // skip normal cube rendering
+            }
+          
+            // normal cube blocks
             for(let d=0;d<6;d++){
               const nb=neighborBlock(c,x,y,z,d);
               if (shouldDrawFace(id, nb)) addFace(x,y,z,d,id);
@@ -1805,6 +1835,7 @@
       c.mesh.receiveShadow = true;
       scene.add(c.mesh);
     }
+
     /* ===== World management ===== */
     
     /* Strong break that always rebuilds the mesh */
