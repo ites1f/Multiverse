@@ -262,6 +262,14 @@
           if (e.payload.id === myId) return;
           if (e.type === "player_move") updateRemotePlayer(e.payload);
           if (e.type === "block_set")   setBlock(e.payload.x, e.payload.y, e.payload.z, e.payload.id);
+          if (e.type === "player_leave") {
+            const rp = remotePlayers.get(e.payload.id);
+            if (rp) {
+              scene.remove(rp);
+              remotePlayers.delete(e.payload.id);
+              console.log(`❌ Player left: ${e.payload.id}`);
+            }
+          }
         }
       )
       .subscribe((status) => {
@@ -2664,6 +2672,13 @@
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
+    window.addEventListener("beforeunload", () => {
+      client.from("world_events").insert({
+        world,
+        type: "player_leave",
+        payload: { id: myId }
+      });
+    });
   </script>
 </body>
 </html>
