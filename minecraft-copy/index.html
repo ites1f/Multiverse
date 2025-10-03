@@ -2156,37 +2156,37 @@
       if(lx<0||lx>=CHUNK.X||ly<0||ly>=CHUNK.Y||lz<0||lz>=CHUNK.Z) return BLOCK.AIR;
       return ch.blocks[idx(lx,ly,lz)];
     }
-    function setBlock(wx,wy,wz,id){
-      const cx=Math.floor(wx/CHUNK.X), cz=Math.floor(wz/CHUNK.Z);
-      const ch=chunks.get(key(cx,cz)); if(!ch) return;
-      const lx=wx-cx*CHUNK.X, ly=wy, lz=wz-cz*CHUNK.Z;
-      if(lx<0||lx>=CHUNK.X||ly<0||ly>=CHUNK.Y||lz<0||lz>=CHUNK.Z) return;
-
-      const i = idx(lx,ly,lz);
+    function setBlock(wx, wy, wz, id) {
+      const cx = Math.floor(wx / CHUNK.X), cz = Math.floor(wz / CHUNK.Z);
+      const ch = chunks.get(key(cx, cz)); if (!ch) return;
+      const lx = wx - cx * CHUNK.X, ly = wy, lz = wz - cz * CHUNK.Z;
+      if (lx < 0 || lx >= CHUNK.X || ly < 0 || ly >= CHUNK.Y || lz < 0 || lz >= CHUNK.Z) return;
+    
+      const i = idx(lx, ly, lz);
       if (ch.blocks[i] === id) return;
-      ch.blocks[i]=id;
-      ch.dirty = true; enqueueBuild(ch);
-
-      const mark = (nx,nz)=>{
-        const nb = chunks.get(key(nx,nz));
+      ch.blocks[i] = id;
+      ch.dirty = true; 
+      enqueueBuild(ch);
+    
+      const mark = (nx, nz) => {
+        const nb = chunks.get(key(nx, nz));
         if (nb && nb.generated) { nb.dirty = true; enqueueBuild(nb); }
       };
-      if (lx === 0)           mark(cx-1, cz);
-      if (lx === CHUNK.X-1)   mark(cx+1, cz);
-      if (lz === 0)           mark(cx, cz-1);
-      if (lz === CHUNK.Z-1)   mark(cx, cz+1);
+      if (lx === 0)           mark(cx - 1, cz);
+      if (lx === CHUNK.X - 1) mark(cx + 1, cz);
+      if (lz === 0)           mark(cx, cz - 1);
+      if (lz === CHUNK.Z - 1) mark(cx, cz + 1);
+    
+      // 👉 broadcast this block change to Supabase
+      client.from("world_events").insert({
+        world,
+        type: "block_set",
+        payload: { x: wx, y: wy, z: wz, id }
+      }).then(({ error }) => {
+        if (error) console.error("block_set insert failed:", error);
+      });
     }
 
-    /* ===== Player & Picking & Physics ===== */
-    // find surface height at (0,0)
-    const groundY = surfaceYAt(0, 0);  // helper from step 1
-    // start one block above it
-    const player = {
-      pos: new THREE.Vector3(0.5, groundY + 1.01, 0.5), // 0.5 = center of block
-      vel: new THREE.Vector3(),
-      size: new THREE.Vector3(0.6, 1.65, 0.6),
-      grounded: false
-    };
 
     function eyePos(){ return player.pos.clone().add(new THREE.Vector3(0, player.size.y*0.5, 0)); }
     // Precise voxel raycast (Amanatides & Woo)
