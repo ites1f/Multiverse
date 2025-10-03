@@ -192,10 +192,18 @@
     const { createClient } = supabase;
     const client = createClient("https://qsbcnrkxsoqqwvdclgvp.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFzYmNucmt4c29xcXd2ZGNsZ3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0MTk0NjAsImV4cCI6MjA3NDk5NTQ2MH0.z8btdSs4OPbnGAHtO2q1qPyz8Ak-5zIQivIJ2ozlvPE");
     const myId = crypto.randomUUID();
-    const world = "world_12345"; // or random uuid
+    // ask the player which world to join
+    let world = prompt("Enter world id to join (or leave blank for a new one):");
+      
+    if (!world || world.trim() === ""){
+      // host mode: generate a unique world id
+      world = "world_" + crypto.randomUUID();
+      alert("Hosting new world: " + world);
+    }
+
     // store remote players by id
     const remotePlayers = new Map();
-      
+
     function updateRemotePlayer(data){
       let rp = remotePlayers.get(data.id);
     
