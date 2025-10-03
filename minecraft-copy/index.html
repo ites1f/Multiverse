@@ -983,6 +983,15 @@
     window.maxStackOf        = maxStackOf;
     window.canStackTogether  = canStackTogether;
     window.BLOCK             = BLOCK;
+    window.give = function(itemId, count=1){
+      const leftover = INV3.addDrop(makeStack(itemId, count));
+      repaintHotbar();
+      repaintBackpack();
+      if (!isEmpty(leftover)){
+        console.warn("Inventory full, leftover:", leftover.id, leftover.count);
+      }
+    };
+
     /* ===== Day–Night ===== */
     let dayTime = 0;                 // 0..1 (fraction of day)
     const DAY_SECONDS   = 5*60;        // full day length (tweak)
@@ -1094,6 +1103,36 @@
     // Enable shadows globally
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap; // nice soft shadows
+
+
+    // load cloud texture (make a PNG with transparency)
+    const cloudTex = new THREE.TextureLoader().load("clouds.png");
+    cloudTex.wrapS = THREE.RepeatWrapping;
+    cloudTex.wrapT = THREE.RepeatWrapping;
+    cloudTex.magFilter = THREE.NearestFilter;
+    cloudTex.minFilter = THREE.NearestFilter;
+      
+    const cloudMat = new THREE.MeshLambertMaterial({
+      map: cloudTex,
+      transparent: true,
+      opacity: 0.8,
+      depthWrite: false, // don't block other stuff
+      side: THREE.DoubleSide
+    });
+    
+    // a big plane above player
+    const cloudGeo = new THREE.PlaneGeometry(5000, 5000, 1, 1);
+    const clouds = new THREE.Mesh(cloudGeo, cloudMat);
+    clouds.rotation.x = -Math.PI/2;
+    clouds.position.y = 200; // height above world
+    scene.add(clouds);
+    
+    // animate texture scrolling
+    function updateClouds(dt){
+      cloudTex.offset.x += dt * 0.001; // slow drift
+    }
+
+
 
 //sky
     // Sky dome
@@ -2450,6 +2489,7 @@
       // --- gravity & sun ---
       player.vel.y += GRAVITY * dt;
       updateSun(dt);
+      updateClouds(dt);
     
       // --- save pos before physics (for sneak edge revert) ---
       const prevX = player.pos.x, prevZ = player.pos.z;
