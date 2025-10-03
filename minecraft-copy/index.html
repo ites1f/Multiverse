@@ -218,9 +218,28 @@
       let rp = remotePlayers.get(data.id);
     
       if (!rp){
-        // create a simple cube to represent the remote player
+        const tex = new THREE.TextureLoader().load("atlas.png");
+        tex.magFilter = THREE.NearestFilter;
+        tex.minFilter = THREE.NearestFilter;
+            
         const geom = new THREE.BoxGeometry(0.6, 1.65, 0.6);
-        const mat  = new THREE.MeshLambertMaterial({ color: 0x00ffcc });
+            
+        // crop the UVs so it uses center 60% of the texture
+        function cropUV(geometry, u0, u1, v0, v1){
+          const uv = geometry.attributes.uv;
+          for (let i = 0; i < uv.count; i++){
+            const u = uv.getX(i);
+            const v = uv.getY(i);
+            uv.setXY(i,
+              u0 + (u1 - u0) * u,
+              v0 + (v1 - v0) * v
+            );
+          }
+          uv.needsUpdate = true;
+        }
+        cropUV(geom, 0.2, 0.8, 0.0, 1.0);
+      
+        const mat  = new THREE.MeshLambertMaterial({ map: tex });
         rp = new THREE.Mesh(geom, mat);
         rp.castShadow = true;
         rp.receiveShadow = true;
