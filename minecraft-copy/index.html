@@ -218,12 +218,12 @@
       let rp = remotePlayers.get(data.id);
     
       if (!rp){
-        const tex = new THREE.TextureLoader().load("atlas.png");
+        const tex = new THREE.TextureLoader().load("player.png");
         tex.magFilter = THREE.NearestFilter;
         tex.minFilter = THREE.NearestFilter;
-            
+
         const geom = new THREE.BoxGeometry(0.6, 1.65, 0.6);
-            
+
         // crop the UVs so it uses center 60% of the texture
         function cropUV(geometry, u0, u1, v0, v1){
           const uv = geometry.attributes.uv;
