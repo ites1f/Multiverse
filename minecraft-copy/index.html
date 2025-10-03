@@ -234,6 +234,14 @@
       rp.position.set(data.x, data.y, data.z);
       rp.rotation.y = data.yaw;
     }
+    let lastSend = 0;
+    function maybeSendMove(dt){
+      lastSend += dt;
+      if (lastSend > 0.1){  // every 100ms
+        sendMove(player.pos.x, player.pos.y, player.pos.z, yaw, pitch);
+        lastSend = 0;
+      }
+    }
 
     // send: player moved
     async function sendMove(x,y,z,yaw,pitch){
@@ -2574,6 +2582,7 @@
       moveAndCollide(dt);
       scheduleFriction(dt);
     
+      maybeSendMove(dt);
       // --- sneak: don't step off edges (post-move, safe) ---
       if (keys.has("shift") && player.grounded){
         const nowSupported  = centerSupportedAt(player.pos.x, player.pos.z, feetY);
