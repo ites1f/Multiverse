@@ -184,6 +184,40 @@
       [BLOCK.LEAVES]: true,
       [BLOCK.GLASS]: true,
     };
+    // --- Held item in hand ---
+    let heldMesh = null;
+    function updateHeldItem(){
+      const slot = INV3.getSelectedSlot();
+      const st   = slot?.stack;
+      if (!st || !st.id) {
+        if (heldMesh) { scene.remove(heldMesh); heldMesh = null; }
+        return;
+      }
+    
+      const blockId = blockNumFromItemId(st.id);
+      const geom = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+      const mat  = new THREE.MeshLambertMaterial({ map: atlas });
+
+      // pick correct UVs like in buildMesh()
+      const uvs = geom.attributes.uv.array;
+      for (let i=0;i<uvs.length;i+=2){
+        // simple: reuse stone uv
+        const rect = uvFor(blockId, 2);
+        uvs[i]   = rect.u0 + (uvs[i] * (rect.u1-rect.u0));
+        uvs[i+1] = rect.v0 + (uvs[i+1] * (rect.v1-rect.v0));
+      }
+      geom.attributes.uv.needsUpdate = true;
+    
+      if (heldMesh) scene.remove(heldMesh);
+      heldMesh = new THREE.Mesh(geom, mat);
+      heldMesh.castShadow = true;
+      heldMesh.receiveShadow = true;
+    
+      // parent to camera so it follows your view
+      camera.add(heldMesh);
+      heldMesh.position.set(0.6, -0.6, -1.0); // right-hand offset
+    }
+
     // -------- 3D FBM cave field (domain-warped value noise) --------
     function hash3i(x,y,z, seed=WORLD_SEED){
       // tiny 32-bit integer hash → [0,1)
@@ -2138,6 +2172,7 @@
           lbl.textContent = (stack.count > 1) ? String(stack.count) : "";
         }
       }
+      if (idxs.includes(INV3.selectedIndex)) updateHeldItem();
     });
 
     // BACKPACK
@@ -2171,6 +2206,7 @@
         const bnum = blockNumFromItemId(st.id);
         if (Number.isFinite(bnum)) CURRENT_BLOCK = bnum;
       }
+      updateHeldItem();
     };    
 
     // 3.h4) keep your 1..9 keys/wheel in sync with INV3 selection
