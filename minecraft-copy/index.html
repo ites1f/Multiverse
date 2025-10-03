@@ -203,15 +203,12 @@
     const myId = crypto.randomUUID();
     // ask the player which world to join
     let world = prompt("Enter world id to join (or leave blank for a new one):");
-    // instead of random:
-    let WORLD_SEED = hashStringToInt(world);
-    
-    
     if (!world || world.trim() === ""){
       // host mode: generate a unique world id
       world = "world_" + crypto.randomUUID();
       alert("Hosting new world: " + world);
     }
+    let WORLD_SEED = hashStringToInt(world);
 
     // store remote players by id
     const remotePlayers = new Map();
@@ -1147,6 +1144,7 @@
       if (blockId === BLOCK.GLASS)  return { tx:0, ty:1 };
       if (blockId === BLOCK.LOG)    return { tx:1, ty:1 };
       if (blockId === BLOCK.LEAVES) return { tx:2, ty:1 };
+      if (blockId === BLOCK.TALL_GRASS) return { tx:3, ty:1 };
       return { tx:0, ty:0 };
     }
 
