@@ -174,7 +174,18 @@
     let isRun = false, isCrouch = false;
     let eyeY = 0.62; // smoothed eye height
     let REACH_DISTANCE = 6;
-    let WORLD_SEED = 16 + Math.floor(Math.random() * 2**31); 
+    function hashStringToInt(str){
+      let h = 2166136261 >>> 0; // FNV-1a 32-bit
+      for (let i=0; i<str.length; i++){
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0; // unsigned 32-bit int
+    }
+
+    // instead of random:
+    let WORLD_SEED = 16 + hashStringToInt(world);
+
 
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:256, Z:16 };
@@ -194,7 +205,7 @@
     const myId = crypto.randomUUID();
     // ask the player which world to join
     let world = prompt("Enter world id to join (or leave blank for a new one):");
-      
+
     if (!world || world.trim() === ""){
       // host mode: generate a unique world id
       world = "world_" + crypto.randomUUID();
