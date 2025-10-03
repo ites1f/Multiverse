@@ -1758,12 +1758,30 @@
         norm.push(n.x,n.y,n.z, n.x,n.y,n.z, n.x,n.y,n.z);
         uv.push(rect.u0,rect.v0,  rect.u1,rect.v0,  rect.u1,rect.v1);
       };
-      const pushQuad=(p0,p1,p2,p3,n,rect)=>{
-        pushTri(p0,p1,p2,n,rect);
-        pos.push(p0.x,p0.y,p0.z, p2.x,p2.y,p2.z, p3.x,p3.y,p3.z);
-        norm.push(n.x,n.y,n.z,   n.x,n.y,n.z,   n.x,n.y,n.z);
-        uv.push(rect.u0,rect.v0, rect.u1,rect.v1, rect.u0,rect.v1);
+      const pushQuad = (p0,p1,p2,p3,n,rect)=>{
+        // 2 triangles: (p0,p1,p2) and (p0,p2,p3)
+      
+        // positions
+        pos.push(
+          p0.x,p0.y,p0.z,  p1.x,p1.y,p1.z,  p2.x,p2.y,p2.z,
+          p0.x,p0.y,p0.z,  p2.x,p2.y,p2.z,  p3.x,p3.y,p3.z
+        );
+      
+        // normals
+        for(let i=0;i<6;i++) norm.push(n.x,n.y,n.z);
+      
+        // UVs (map full rect onto the quad)
+        uv.push(
+          rect.u0, rect.v1,  // p0
+          rect.u0, rect.v0,  // p1
+          rect.u1, rect.v0,  // p2
+      
+          rect.u0, rect.v1,  // p0
+          rect.u1, rect.v0,  // p2
+          rect.u1, rect.v1   // p3
+        );
       };
+
     
       const addFace=(x,y,z,dir,blockId)=>{
         const bx=baseX+x, by=y, bz=baseZ+z;
