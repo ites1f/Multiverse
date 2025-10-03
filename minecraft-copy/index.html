@@ -204,7 +204,7 @@
     // ask the player which world to join
     let world = prompt("Enter world id to join (or leave blank for a new one):");
     // instead of random:
-    let WORLD_SEED = 16 + hashStringToInt(world);
+    let WORLD_SEED = hashStringToInt(world);
     
     
     if (!world || world.trim() === ""){
@@ -245,12 +245,15 @@
 
     // send: player moved
     async function sendMove(x,y,z,yaw,pitch){
-      await client.from("world_events").insert({
+      const { error } = await client.from("world_events").insert({
         world,
         type: "player_move",
         payload: { x,y,z,yaw,pitch, id: myId }
       });
+      if (error) console.error("Insert failed:", error);
+      else console.log("Sent move", {x,y,z});
     }
+
     client.channel("world:"+world)
       .on(
         "postgres_changes",
