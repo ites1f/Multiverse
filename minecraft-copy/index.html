@@ -1111,6 +1111,8 @@
     cloudTex.wrapT = THREE.RepeatWrapping;
     cloudTex.magFilter = THREE.NearestFilter;
     cloudTex.minFilter = THREE.NearestFilter;
+    cloudTex.repeat.set(8, 8);  // more tiles across the sky
+
       
     const cloudMat = new THREE.MeshLambertMaterial({
       map: cloudTex,
@@ -2538,15 +2540,30 @@
         `grounded:${player.grounded} | queue:${buildQueue.length}`;
     }
 
-    function loop(now){
-      acc += Math.min(0.1, (now - last) / 1000); // accumulate dt, clamp big gaps
-      last = now;
+    let frameCount = 0;
+    let fpsTimer = 0;
+    let currentFPS = 0;
 
+    function loop(now){
+      const dt = (now - last) / 1000;
+      acc += Math.min(0.1, dt);
+      last = now;
+    
+      frameCount++;
+      fpsTimer += dt;
+      if (fpsTimer >= 1.0){
+        currentFPS = frameCount;
+        frameCount = 0;
+        fpsTimer = 0;
+        const fpsEl = document.getElementById("fpsLine");
+        if (fpsEl) fpsEl.textContent = `FPS: ${currentFPS}`;
+      }
+    
       while (acc >= STEP){
         gameStep(STEP);
         acc -= STEP;
       }
-
+    
       renderer.render(scene,camera);
       requestAnimationFrame(loop);
     }
