@@ -1563,9 +1563,9 @@
         }
       }
       //carveWormsInChunk(c, 3);  // 0–5 works; higher = more tunnels
-      // decorate this chunk with trees (unchanged)
       carveOldCavesInChunk(c, WORLD_SEED, 2); // 2 worms per chunk (tweak for density)
-      decorateChunkTrees(c, WORLD_SEED, fbm2);
+      decorateChunkTrees(c, WORLD_SEED, fbm2); // decorate this chunk with trees (unchanged)
+      decorateChunkTallGrass(c, WORLD_SEED, fbm2);
       c.generated = true;
       c.dirty = true;
       enqueueBuild(c);
@@ -1670,6 +1670,33 @@
           // place tree (local-only; uses cSet/cGet)
           placeTreeLocal(chunk, lx, yTop+1, lz, rng);
           placed++;
+        }
+      }
+    }
+    function decorateChunkTallGrass(chunk, worldSeed, noise2D){
+      const { cx, cz } = chunk;
+      const wx0 = cx * CHUNK.X, wz0 = cz * CHUNK.Z;
+
+      // per-chunk RNG
+      const rng = mulberry32((worldSeed ^ (cx*92837111) ^ (cz*689287499)) >>> 0);
+
+      for (let lx=0; lx<CHUNK.X; lx++){
+        for (let lz=0; lz<CHUNK.Z; lz++){
+          if (rng() > 0.15) continue; // 15% chance per column
+        
+          // find topmost solid block in this column
+          let yTop = -1;
+          for (let y=CHUNK.Y-2; y>=1; y--){
+            if (cGet(chunk, lx, y, lz) !== BLOCK.AIR){ yTop = y; break; }
+          }
+          if (yTop < 0) continue;
+        
+          // only place on grass surface with air above
+          if (cGet(chunk, lx, yTop, lz) !== BLOCK.GRASS) continue;
+          if (cGet(chunk, lx, yTop+1, lz) !== BLOCK.AIR) continue;
+        
+          // place tall grass
+          cSet(chunk, lx, yTop+1, lz, BLOCK.TALL_GRASS);
         }
       }
     }
