@@ -873,6 +873,9 @@
       invOpen = false;
       document.getElementById("invPanel").style.display = "none";
       document.getElementById("invBackpack").style.display = "none"; // <-- add this
+      if (!document.pointerLockElement){
+        renderer.domElement.requestPointerLock();
+      }
     }
 
     addEventListener("keydown", (e)=>{
@@ -1073,6 +1076,9 @@
         if (hud){
           hud.style.display = (hud.style.display === "none" ? "block" : "none");
           e.preventDefault();
+          if (!nowVisible && !document.pointerLockElement){
+            renderer.domElement.requestPointerLock();
+          }
         }
       }
     });
