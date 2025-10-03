@@ -1654,6 +1654,7 @@
       }
       return Math.floor(h);
     }
+    const FLAT_WORLD_Y = null;
     function surfaceYAt(wx, wz){
       // ground height from your terrain sampler (clamped to world)
       const hRaw = FLAT_WORLD_Y ?? sampleTerrain(wx, wz);
@@ -1672,7 +1673,7 @@
 
 
 
-    const FLAT_WORLD_Y = null;
+    
 
     /* ===== World ===== */
     class Chunk {
