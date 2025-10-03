@@ -184,9 +184,6 @@
       return h >>> 0; // unsigned 32-bit int
     }
 
-    // instead of random:
-    let WORLD_SEED = 16 + hashStringToInt(world);
-
 
     /* ===== Config ===== */
     const CHUNK = { X:16, Y:256, Z:16 };
@@ -206,7 +203,10 @@
     const myId = crypto.randomUUID();
     // ask the player which world to join
     let world = prompt("Enter world id to join (or leave blank for a new one):");
-
+    // instead of random:
+    let WORLD_SEED = 16 + hashStringToInt(world);
+    
+    
     if (!world || world.trim() === ""){
       // host mode: generate a unique world id
       world = "world_" + crypto.randomUUID();
