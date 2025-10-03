@@ -250,20 +250,26 @@
       if (error) console.error("Insert failed:", error);
       //else console.log("Sent move", {x,y,z});
     }
-
     client.channel("world:" + world)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "world_events" },
         (payload) => {
-          if (payload.new.world !== world) return; // make sure same world
+          if (payload.new.world !== world) return; // ignore other rooms
           console.log("Got event:", payload.new);
+        
           const e = payload.new;
           if (e.type === "player_move") updateRemotePlayer(e.payload);
           if (e.type === "block_set")   setBlock(e.payload.x, e.payload.y, e.payload.z, e.payload.id);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log(`📡 Listening for events in world: ${world}`);
+        }
+      });
+
+
 
 
 
