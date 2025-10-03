@@ -167,6 +167,7 @@
     // World management
     let GRID_RADIUS = 4;
     let BUILDS_PER_FRAME = 12;
+    
 
 
     /* ===== Movement tuning ===== */
@@ -1658,6 +1659,17 @@
       const hRaw = FLAT_WORLD_Y ?? sampleTerrain(wx, wz);
       return Math.max(1, Math.min(CHUNK.Y - 2, hRaw));
     }
+    // find surface height at (0,0)
+    const groundY = surfaceYAt(0, 0);  
+      
+    // Player object
+    const player = {
+      pos: new THREE.Vector3(0.5, groundY + 1.01, 0.5), // 0.5 = center of block
+      vel: new THREE.Vector3(),
+      size: new THREE.Vector3(0.6, 1.65, 0.6),
+      grounded: false
+    };
+
 
 
     const FLAT_WORLD_Y = null;
