@@ -257,9 +257,9 @@
         { event: "INSERT", schema: "public", table: "world_events" },
         (payload) => {
           if (payload.new.world !== world) return; // ignore other rooms
-          console.log("Got event:", payload.new);
-        
+          //console.log("Got event:", payload.new);
           const e = payload.new;
+          if (e.payload.id === myId) return;
           if (e.type === "player_move") updateRemotePlayer(e.payload);
           if (e.type === "block_set")   setBlock(e.payload.x, e.payload.y, e.payload.z, e.payload.id);
         }
@@ -2335,7 +2335,7 @@
         // landed this frame?
         if (!wasGrounded && player.grounded){
           const impact = Math.max(0, -prevVy); // downward speed when we hit
-          const SAFE = 20.0;                    // tweak: no damage below this
+          const SAFE = 16.0;                    // tweak: no damage below this
           if (impact > SAFE){
             const dmg = (impact - SAFE) * 0.4; // scale to feel like hearts
             takeDamage(dmg);
