@@ -242,7 +242,13 @@
         }
         cropUV(geom, 0.2, 0.8, 0.0, 1.0);
       
-        const mat = new THREE.MeshLambertMaterial({ map: tex });
+        const mat = new THREE.MeshLambertMaterial({
+          map: tex,
+          color: 0xcccccc,       // subtle tint correction
+          emissive: 0x442200,    // adds warm oak glow
+          emissiveIntensity: 0.15
+        });
+
         rp = new THREE.Mesh(geom, mat);
         rp.castShadow = true;
         rp.receiveShadow = true;
