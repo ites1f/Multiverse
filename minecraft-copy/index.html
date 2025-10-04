@@ -63,30 +63,32 @@
     }
     #invBackpack .hotCell { background: rgba(255,255,255,.06); }
 
-
-    /* 
-    #invCursor{
-      width: 32px; height: 32px; 
+    #sidePanel{
+      position:fixed; right:0; top:0; height:100vh; width:min(22vw, 320px);
+      display:flex; flex-direction:column; gap:8px; padding:10px;
+      background:linear-gradient(90deg, transparent, rgba(0,0,0,.35));
+      backdrop-filter: blur(2px); z-index:6000; pointer-events:auto;
+      color:#e9eefc; font:14px ui-monospace, Consolas, monospace;
     }
-
-    #invCursor .hotIcon{
-      position: relative;          
-      inset: 0;
-      width: 100%; height: 100%;
-      background-image: url("atlas.png");
-      background-size: 400% 400%; 
-      image-rendering: pixelated;
+    #playersBox, #chatBox{
+      background: rgba(0,0,0,.35);
+      border-radius:10px; padding:10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
     }
-
-    #invCursor .hotCount{
-      position: absolute;
-      right: 2px;
-      bottom: 2px;
-      font: 12px ui-monospace, monospace;
-      color: white;
-      text-shadow: 0 1px 2px rgba(0,0,0,.8);
+    #playersBox{ flex:0 0 auto; }
+    #playersList{ list-style:none; margin:6px 0 0; padding:0; max-height:22vh; overflow:auto; }
+    #playersList li{ padding:2px 0; opacity:.95 }
+    #chatBox{ flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+    #chatLog{ flex:1 1 auto; overflow:auto; padding-right:4px; }
+    #chatLog .msg{ margin:4px 0; }
+    #chatLog .meta{ opacity:.6; font-size:12px; margin-left:6px; }
+    #chatInput{
+      margin-top:8px; padding:8px 10px; border-radius:8px; border:0;
+      background:rgba(255,255,255,.08); color:#fff; outline:none;
     }
-    */
+    .title{ font-weight:700; opacity:.9; margin-bottom:4px; }
+    @media (max-width:900px){
+      #sidePanel{ width: 46vw; }
+    }
   </style>
 </head>
 <body>
@@ -130,14 +132,24 @@
     <div id="hurtOverlay"
          style="position:fixed;top:0;left:0;width:100%;height:100%;
                 background:red;opacity:0;pointer-events:none;"></div>
-
+  <!-- Chat + Players panel -->
+  <div id="sidePanel">
+    <div id="playersBox">
+      <div class="title">Players</div>
+      <ul id="playersList"></ul>
+    </div>
+  
+    <div id="chatBox">
+      <div class="title">Chat</div>
+      <div id="chatLog"></div>
+      <input id="chatInput" placeholder="Type a message… (Enter to send)" autocomplete="off" />
+    </div>
+  </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script type="module">
     import * as THREE from "https://esm.sh/three@0.160.0";
     import { Sky }   from "https://esm.sh/three@0.160.0/examples/jsm/objects/Sky.js";
-
-
 
     // Physics (per-second)
     let GRAVITY  = -19;  
@@ -265,6 +277,86 @@
       rp.targetPos.set(data.x, data.y, data.z);
       rp.targetYaw = data.yaw;
     }
+    /* ======== CHAT & PLAYER LIST ======== */
+
+    // 3.0) simple name
+    const displayName = (prompt("Enter a nickname (optional):") || "Log").slice(0,16);
+      
+    // 3.1) Realtime chat channel (broadcast, no DB write needed)
+    const chatChan = client.channel(`chat:${world}`, {
+      config: { broadcast: { self: true } }
+    }).on("broadcast", { event: "chat" }, (payload) => {
+      const { id, name, text, t } = payload.payload || {};
+      pushChat({ id, name, text, t });
+    }).subscribe();
+    
+    // send helper
+    function sendChat(text){
+      if (!text || !text.trim()) return;
+      chatChan.send({
+        type: "broadcast",
+        event: "chat",
+        payload: { id: myId, name: displayName, text: text.trim(), t: Date.now() }
+      });
+    }
+    
+    // UI wire
+    const chatInput = document.getElementById("chatInput");
+    const chatLog   = document.getElementById("chatLog");
+    chatInput.addEventListener("keydown", (e)=>{
+      if (e.key === "Enter"){
+        sendChat(chatInput.value);
+        chatInput.value = "";
+      }
+    });
+    
+    // render chat line
+    function pushChat({ id, name, text, t }){
+      const div = document.createElement("div");
+      div.className = "msg";
+      const time = new Date(t || Date.now());
+      const hh = String(time.getHours()).padStart(2,"0");
+      const mm = String(time.getMinutes()).padStart(2,"0");
+      div.innerHTML = `<b>${escapeHtml(name||"??")}</b><span class="meta"> ${hh}:${mm}</span>: ${escapeHtml(text||"")}`;
+      chatLog.appendChild(div);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+    function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    
+    // 3.2) Presence channel for player list
+    const presenceChan = client.channel(`presence:${world}`, {
+      config: { presence: { key: myId } }
+    });
+    
+    const present = new Map(); // id -> {name}
+    function repaintPlayers(){
+      const ul = document.getElementById("playersList");
+      ul.innerHTML = "";
+      // show self first
+      const entries = [...present.entries()].sort(([a],[b]) => a===myId?-1 : b===myId?1 : 0);
+      for (const [id, data] of entries){
+        const li = document.createElement("li");
+        const me = (id===myId) ? " (you)" : "";
+        li.textContent = `${data?.name || "Player"}${me}`;
+        ul.appendChild(li);
+      }
+    }
+    
+    presenceChan.on("presence", { event: "sync" }, () => {
+      const state = presenceChan.presenceState();
+      present.clear();
+      Object.keys(state).forEach((key)=>{
+        const metas = state[key];
+        // latest meta per key
+        const last = metas[metas.length-1];
+        present.set(key, { name: last?.name || "Player" });
+      });
+      repaintPlayers();
+    }).subscribe(async (status) => {
+      if (status === "SUBSCRIBED"){
+        await presenceChan.track({ id: myId, name: displayName });
+      }
+    });
 
     let lastSend = 0;
     function maybeSendMove(dt){
